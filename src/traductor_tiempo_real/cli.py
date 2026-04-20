@@ -5,6 +5,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from traductor_tiempo_real.audio.diagnostico import render_capture_diagnostic, run_capture_diagnostic
 from traductor_tiempo_real.benchmark_base import render_report, run_base_benchmark
 from traductor_tiempo_real.configuracion.carga import build_default_app_config
 from traductor_tiempo_real.configuracion.idiomas import target_language_choices
@@ -43,6 +44,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emite el reporte completo en JSON.",
     )
 
+    capture_parser = subparsers.add_parser(
+        "captura-diagnostico",
+        help="Diagnostica captura y segmentacion con el micrófono por defecto.",
+    )
+    capture_parser.add_argument(
+        "--seconds",
+        type=float,
+        default=10.0,
+        help="Duración de la captura en segundos.",
+    )
+    capture_parser.add_argument(
+        "--max-segments",
+        type=int,
+        default=None,
+        help="Detiene la captura al alcanzar este número de segmentos.",
+    )
+    capture_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emite el reporte completo en JSON.",
+    )
+
     return parser
 
 
@@ -67,6 +90,19 @@ def main(argv: list[str] | None = None) -> int:
             print(report.to_json())
         else:
             print(render_report(report))
+        return 0 if report.is_successful() else 1
+
+    if args.command == "captura-diagnostico":
+        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        report = run_capture_diagnostic(
+            config=config,
+            duration_seconds=args.seconds,
+            max_segments=args.max_segments,
+        )
+        if args.json:
+            print(report.to_json())
+        else:
+            print(render_capture_diagnostic(report))
         return 0 if report.is_successful() else 1
 
     parser.error(f"Comando no soportado: {args.command}")

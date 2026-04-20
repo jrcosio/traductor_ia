@@ -19,6 +19,8 @@ class ConfiguracionTestCase(unittest.TestCase):
         self.assertEqual(config.source_language, "auto")
         self.assertEqual(config.target_language, LanguageCode.EN)
         self.assertEqual(config.audio.sample_rate, 16000)
+        self.assertEqual(config.audio.blocksize, 512)
+        self.assertEqual(config.vad.window_ms, 32)
         self.assertTrue(config.benchmark.default_sample.name.endswith(".wav"))
 
     def test_permita_idioma_destino_valido(self) -> None:

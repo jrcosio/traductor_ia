@@ -13,6 +13,16 @@ Este sprint deja preparada la base del repositorio:
 - benchmark offline base
 - tests mínimos de humo y configuración
 
+## Sprint 1
+
+Este sprint añade la primera etapa real del flujo:
+
+- captura desde el micrófono por defecto del sistema
+- buffer circular no bloqueante
+- integración con `Silero VAD`
+- segmentación con `pre-roll`, `hangover` y duración máxima
+- diagnóstico manual de captura y segmentación
+
 ## Uso rápido
 
 Mostrar la configuración base:
@@ -27,8 +37,14 @@ Ejecutar benchmark base:
 python benchmarks/benchmark_base.py --sample samples/base_silence.wav
 ```
 
+Ejecutar diagnóstico de captura y segmentación:
+
+```bash
+python main.py captura-diagnostico --seconds 5
+```
+
 Ejecutar tests:
 
 ```bash
-PYTHONPATH=src python -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```

@@ -1,0 +1,1 @@
+"""Integración y segmentación VAD."""

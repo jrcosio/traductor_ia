@@ -103,30 +103,30 @@ Capturar audio del micrófono sin bloquear y generar segmentos rápidos y establ
 
 ### Entregables
 
-- [ ] Captura con `sounddevice` implementada
-- [ ] Callback no bloqueante implementado
-- [ ] Búfer circular implementado
-- [ ] Conversión a mono y sample rate objetivo implementada
-- [ ] Integración con `Silero VAD`
-- [ ] Ajustes básicos de VAD definidos:
-  - [ ] tamaño de ventana
-  - [ ] pre-roll
-  - [ ] hangover
-  - [ ] duración máxima de segmento
-- [ ] Metadatos por segmento añadidos:
-  - [ ] identificador
-  - [ ] timestamps
-  - [ ] duración
-  - [ ] energía
+- [x] Captura con `sounddevice` implementada
+- [x] Callback no bloqueante implementado
+- [x] Búfer circular implementado
+- [x] Conversión a mono y sample rate objetivo implementada
+- [x] Integración con `Silero VAD`
+- [x] Ajustes básicos de VAD definidos:
+  - [x] tamaño de ventana
+  - [x] pre-roll
+  - [x] hangover
+  - [x] duración máxima de segmento
+- [x] Metadatos por segmento añadidos:
+  - [x] identificador
+  - [x] timestamps
+  - [x] duración
+  - [x] energía
 
 ### Pruebas
 
-- [ ] Test con silencio
-- [ ] Test con voz continua
-- [ ] Test con pausas cortas
-- [ ] Test con ruido de fondo
+- [x] Test con silencio
+- [x] Test con voz continua
+- [x] Test con pausas cortas
+- [x] Test con ruido de fondo
 - [ ] Test de estabilidad de captura prolongada
-- [ ] Medición de latencia de cierre de segmento
+- [x] Medición de latencia de cierre de segmento
 
 ### Criterio de cierre
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from traductor_tiempo_real.configuracion.idiomas import LanguageCode
@@ -10,7 +10,21 @@ from traductor_tiempo_real.configuracion.idiomas import LanguageCode
 class AudioConfig:
     sample_rate: int = 16000
     channels: int = 1
-    chunk_ms: int = 30
+    chunk_ms: int = 32
+    dtype: str = "float32"
+    blocksize: int = 512
+    device: int | str | None = None
+    queue_max_frames: int = 128
+    capture_channels: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class VadConfig:
+    threshold: float = 0.5
+    window_ms: int = 32
+    pre_roll_ms: int = 96
+    hangover_ms: int = 160
+    max_segment_ms: int = 15000
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +46,7 @@ class AppConfig:
     source_language: str
     target_language: LanguageCode
     audio: AudioConfig
+    vad: VadConfig
     translation: TranslationConfig
     benchmark: BenchmarkConfig
     debug: bool = False
