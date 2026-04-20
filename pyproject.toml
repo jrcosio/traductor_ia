@@ -1,7 +1,18 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
 [project]
 name = "traductor-ia"
 version = "0.1.0"
-description = "Add your description here"
+description = "Traductor de voz local en tiempo real"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+
+[project.scripts]
+traductor-ia = "traductor_tiempo_real.cli:main"
+traductor-benchmark-base = "traductor_tiempo_real.benchmark_base:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/traductor_tiempo_real"]

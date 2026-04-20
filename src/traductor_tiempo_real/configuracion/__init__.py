@@ -1,0 +1,1 @@
+"""Configuracion centralizada del proyecto."""
