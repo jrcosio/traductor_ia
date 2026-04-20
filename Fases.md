@@ -18,6 +18,8 @@ Construir una aplicación de traducción de voz en tiempo real o casi real con e
 3. Traducción semántica con `Qwen3-8B` o `Gemma 4 27B` en `Ollama`
 4. Síntesis de voz con `Kokoro-82M TTS`
 
+El flujo funcional del producto es: escuchar audio desde el micrófono, detectar la voz, transcribirla, traducirla al idioma destino elegido al inicio y reproducir la traducción sintetizada en voz.
+
 Objetivos de latencia:
 
 - Operativo: extremo a extremo por debajo de `1 segundo`
@@ -27,6 +29,7 @@ Objetivos de latencia:
 
 - [ ] La aplicación pregunta al inicio el idioma destino.
 - [ ] El idioma de entrada se detecta automáticamente.
+- [ ] El flujo principal del MVP empieza en el micrófono y termina en audio traducido reproducido por TTS.
 - [ ] El MVP solo soporta estos idiomas de salida:
   - [ ] Español
   - [ ] Inglés

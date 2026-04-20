@@ -9,6 +9,8 @@ Este repositorio desarrolla un traductor de voz local en tiempo real o casi real
 3. `Qwen3-8B` o `Gemma 4 27B` sobre `Ollama`
 4. `Kokoro-82M TTS`
 
+El comportamiento esperado del producto es escuchar audio desde el micrófono, detectar la voz, transcribirla, traducirla al idioma destino activo de la sesión y reproducir esa traducción como audio sintetizado.
+
 La prioridad principal es la latencia total de extremo a extremo.
 
 ## Objetivos técnicos
@@ -30,6 +32,7 @@ La prioridad principal es la latencia total de extremo a extremo.
    - Italiano
 4. No se debe aceptar texto libre para el idioma destino en la primera versión.
 5. Todas las etapas posteriores deben usar el idioma destino de la sesión.
+6. El flujo principal del MVP empieza en el micrófono y termina en reproducción de audio traducido por TTS.
 
 ## Reglas principales
 
