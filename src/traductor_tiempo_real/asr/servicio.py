@@ -76,10 +76,28 @@ class AsrProcessingService:
         self._tasks = _AsrTaskQueue()
         self._results: SimpleQueue[AsrResult] = SimpleQueue()
         self._worker: Thread | None = None
+        self._backend_initialized = False
+        self._warmed_up = False
+        self._unfinished_tasks = 0
+        self._state_condition = Condition()
 
-    def start(self) -> "AsrProcessingService":
-        if self._worker is not None:
-            return self
+    def _register_task(self) -> None:
+        with self._state_condition:
+            self._unfinished_tasks += 1
+
+    def _complete_task(self) -> None:
+        with self._state_condition:
+            self._unfinished_tasks -= 1
+            self._state_condition.notify_all()
+
+    @property
+    def unfinished_tasks(self) -> int:
+        with self._state_condition:
+            return self._unfinished_tasks
+
+    def initialize_backend(self) -> None:
+        if self._backend_initialized:
+            return
 
         with measure_stage(
             "asr.backend_init",
@@ -94,17 +112,29 @@ class AsrProcessingService:
                     details={"backend": self._config.backend, "model_repo": self._config.model_repo},
                 )
             )
+        self._backend_initialized = True
 
-        if self._config.warmup_on_start:
-            with measure_stage("asr.warmup", collector=self._collector):
-                self._backend.warmup()
-                self._checks.append(
-                    CheckResult(
-                        name="asr.warmup",
-                        status=CheckStatus.OK,
-                        message="Warmup del modelo ASR completado.",
-                    )
+    def warmup(self) -> None:
+        self.initialize_backend()
+        if self._warmed_up or not self._config.warmup_on_start:
+            return
+
+        with measure_stage("asr.warmup", collector=self._collector):
+            self._backend.warmup()
+            self._checks.append(
+                CheckResult(
+                    name="asr.warmup",
+                    status=CheckStatus.OK,
+                    message="Warmup del modelo ASR completado.",
                 )
+            )
+        self._warmed_up = True
+
+    def start(self) -> "AsrProcessingService":
+        if self._worker is not None:
+            return self
+
+        self.warmup()
 
         self._worker = Thread(target=self._run, name="asr-worker", daemon=True)
         self._worker.start()
@@ -122,7 +152,12 @@ class AsrProcessingService:
             is_final=False,
             metadata={"energy_rms": snapshot.energy_rms, **snapshot.metadata},
         )
-        self._tasks.submit(request)
+        self._register_task()
+        try:
+            self._tasks.submit(request)
+        except Exception:
+            self._complete_task()
+            raise
 
     def submit_final(self, segment: SpeechSegment) -> None:
         request = AsrRequest(
@@ -136,7 +171,12 @@ class AsrProcessingService:
             is_final=True,
             metadata={"closure_latency_ms": segment.closure_latency_ms, **segment.metadata},
         )
-        self._tasks.submit(request)
+        self._register_task()
+        try:
+            self._tasks.submit(request)
+        except Exception:
+            self._complete_task()
+            raise
 
     def poll_results(self) -> list[AsrResult]:
         drained: list[AsrResult] = []
@@ -155,11 +195,12 @@ class AsrProcessingService:
 
     def wait_until_drained(self, timeout_seconds: float = 15.0) -> None:
         deadline = monotonic() + timeout_seconds
-        while monotonic() < deadline:
-            if self._tasks.is_empty:
-                return
-            sleep(0.02)
-        raise TimeoutError("La cola ASR no se vació dentro del tiempo esperado")
+        with self._state_condition:
+            while self._unfinished_tasks > 0:
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("La cola ASR no se vació dentro del tiempo esperado")
+                self._state_condition.wait(timeout=remaining)
 
     def _run(self) -> None:
         while True:
@@ -215,3 +256,4 @@ class AsrProcessingService:
                     error=str(exc),
                 )
             self._results.put(result)
+            self._complete_task()

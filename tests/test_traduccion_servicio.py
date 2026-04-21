@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import time
 import unittest
 
 
@@ -23,6 +24,7 @@ class FakeTranslationBackend:
         self.warmup_called = True
 
     def translate(self, source_text: str, *, source_language: str | None, target_language: str):
+        time.sleep(0.05)
         self.calls.append((source_text, source_language, target_language))
         return f"trad:{source_text}", {"parse_mode": "json"}
 

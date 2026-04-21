@@ -80,6 +80,18 @@ def probe_default_input_device(sounddevice_module=None) -> dict[str, object]:
     return dict(info)
 
 
+def validate_default_input_settings(config: AudioConfig, sounddevice_module=None) -> dict[str, object]:
+    sounddevice = sounddevice_module or get_sounddevice_module()
+    info = probe_default_input_device(sounddevice)
+    sounddevice.check_input_settings(
+        device=config.device,
+        channels=config.capture_channels,
+        dtype=config.dtype,
+        samplerate=config.sample_rate,
+    )
+    return info
+
+
 class MicrophoneCapture:
     def __init__(self, config: AudioConfig, *, sounddevice_module=None) -> None:
         self._config = config
@@ -122,13 +134,7 @@ class MicrophoneCapture:
         self._buffer.push(frame)
 
     def start(self) -> "MicrophoneCapture":
-        self._device_info = probe_default_input_device(self._sounddevice)
-        self._sounddevice.check_input_settings(
-            device=self._config.device,
-            channels=self._config.capture_channels,
-            dtype=self._config.dtype,
-            samplerate=self._config.sample_rate,
-        )
+        self._device_info = validate_default_input_settings(self._config, self._sounddevice)
         self._stream = self._sounddevice.InputStream(
             device=self._config.device,
             channels=self._config.capture_channels,

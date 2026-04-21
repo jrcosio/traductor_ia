@@ -45,6 +45,29 @@ Este sprint añade traducción semántica sobre los resultados finales del ASR:
 - traducción en vivo en terminal mostrando `ASR-FINAL` y `TRAD-FINAL` o `TRAD-SKIP`
 - benchmark de traducción con frases de 3, 8 y 15 palabras
 
+## Sprint 4
+
+Este sprint añade TTS local con `Kokoro-82M`:
+
+- integración con `kokoro`
+- reproducción secuencial no bloqueante usando `sounddevice`
+- voces base para `en`, `es`, `fr` e `it`
+- alemán pospuesto explícitamente
+- diagnóstico TTS y benchmark de voz
+- reproducción integrada en `traducir-en-vivo`
+
+## Sprint 5
+
+Este sprint añade un pipeline explícito y medible de extremo a extremo:
+
+- orquestación con `asyncio`
+- colas acotadas entre etapas
+- backpressure con descarte controlado y métricas
+- eventos de pipeline por `utterance_id`
+- métricas end-to-end hasta traducción y primer audio
+- benchmark del flujo completo sobre audio pregrabado
+- diagnóstico del pipeline completo con micrófono real
+
 ## Uso rápido
 
 Mostrar la configuración base:
@@ -100,6 +123,38 @@ Ejecutar benchmark de traducción:
 ```bash
 python main.py --target-language en benchmark-traduccion
 ```
+
+Ejecutar diagnóstico TTS:
+
+```bash
+python main.py --target-language es tts-diagnostico --text "Hola, esta es una prueba de voz."
+```
+
+Ejecutar benchmark TTS:
+
+```bash
+python main.py --target-language es benchmark-tts
+```
+
+Ejecutar traducción en vivo con voz:
+
+```bash
+python main.py --target-language en traducir-en-vivo --seconds 15
+```
+
+Ejecutar diagnóstico del pipeline completo:
+
+```bash
+python main.py --target-language en pipeline-diagnostico --seconds 15
+```
+
+Ejecutar benchmark del pipeline completo con muestras pregrabadas:
+
+```bash
+python main.py --target-language en benchmark-pipeline
+```
+
+Nota: para usar `traducir-en-vivo` con reproducción activa es mejor usar auriculares para evitar realimentación del audio de salida al micrófono.
 
 Ejecutar tests:
 

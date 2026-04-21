@@ -8,6 +8,7 @@ from traductor_tiempo_real.configuracion.modelos import AppConfig
 from traductor_tiempo_real.metricas.eventos import CheckResult, CheckStatus
 from traductor_tiempo_real.metricas.reporte import BenchmarkReport
 from traductor_tiempo_real.metricas.tiempo import measure_stage
+from traductor_tiempo_real.pipeline.bootstrap import StartupCallback, TranslationRuntime, bootstrap_translation_runtime
 from traductor_tiempo_real.traduccion.modelos import GuidedTranslationEntry, GuidedTranslationReport, LiveTranslationReport, TranslationResult
 from traductor_tiempo_real.traduccion.servicio import TranslationProcessingService
 
@@ -53,22 +54,22 @@ def run_live_translation(
     max_segments: int | None = None,
     on_asr_result=None,
     on_translation_result=None,
+    runtime: TranslationRuntime | None = None,
+    on_startup_step: StartupCallback | None = None,
+    on_ready=None,
 ) -> LiveTranslationReport:
-    translation_events = []
-    translation_checks = []
-    translation_results: list[TranslationResult] = []
+    own_runtime = runtime is None
+    runtime = runtime or bootstrap_translation_runtime(
+        config,
+        on_step=on_startup_step,
+        result_callback=on_translation_result,
+    )
+    if on_ready is not None:
+        on_ready()
 
-    def handle_translation_result(result: TranslationResult) -> None:
-        translation_results.append(result)
-        if on_translation_result is not None:
-            on_translation_result(result)
-
-    translation_service = TranslationProcessingService(
-        config.translation,
-        collector=translation_events,
-        checks=translation_checks,
-        result_callback=handle_translation_result,
-    ).start()
+    translation_service = runtime.translation_service
+    translation_events = runtime.events
+    translation_checks = runtime.checks
 
     def handle_asr_result(result: AsrResult) -> None:
         if result.is_final:
@@ -82,12 +83,17 @@ def run_live_translation(
         max_segments=max_segments,
         enable_partials=False,
         on_result=handle_asr_result,
+        runtime=runtime.asr,
     )
 
     translation_service.wait_until_drained(timeout_seconds=config.translation.timeout_seconds)
-    translation_service.close()
-    translation_service.join(timeout=config.translation.timeout_seconds)
+    if own_runtime:
+        translation_service.close()
+        translation_service.join(timeout=config.translation.timeout_seconds)
+        runtime.asr.asr_service.close()
+        runtime.asr.asr_service.join(timeout=30.0)
 
+    translation_results: list[TranslationResult] = []
     for result in translation_service.poll_results():
         if result not in translation_results:
             translation_results.append(result)
@@ -123,6 +129,8 @@ def run_guided_translation_validation(
     on_translation_result=None,
     prompt_callback=None,
     wait_callback=None,
+    on_startup_step: StartupCallback | None = None,
+    on_ready=None,
 ) -> GuidedTranslationReport:
     prompts = VALIDATION_SCRIPTS.get(script_name)
     if prompts is None:
@@ -138,33 +146,47 @@ def run_guided_translation_validation(
         )
     ]
 
-    for index, prompt in enumerate(prompts, start=1):
-        if prompt_callback is not None:
-            prompt_callback(index, prompt)
-        if wait_callback is not None:
-            wait_callback()
+    runtime = bootstrap_translation_runtime(
+        config,
+        on_step=on_startup_step,
+        result_callback=on_translation_result,
+    )
+    if on_ready is not None:
+        on_ready()
 
-        report = run_live_translation(
-            config,
-            duration_seconds=segment_timeout,
-            max_segments=1,
-            on_asr_result=on_asr_result,
-            on_translation_result=on_translation_result,
-        )
-        asr_finals = [item for item in report.asr_report.results if item.is_final and item.text]
-        translations = [item for item in report.translations if item.status in {"translated", "skipped", "error"}]
-        last_asr = asr_finals[-1] if asr_finals else None
-        last_translation = translations[-1] if translations else None
-        entries.append(
-            GuidedTranslationEntry(
-                prompt=prompt,
-                report=report,
-                asr_text=last_asr.text if last_asr else "",
-                translation_status=last_translation.status if last_translation else "missing",
-                translation_text=last_translation.text if last_translation else "",
-                detected_language=last_asr.language if last_asr else None,
+    try:
+        for index, prompt in enumerate(prompts, start=1):
+            if prompt_callback is not None:
+                prompt_callback(index, prompt)
+            if wait_callback is not None:
+                wait_callback()
+
+            report = run_live_translation(
+                config,
+                duration_seconds=segment_timeout,
+                max_segments=1,
+                on_asr_result=on_asr_result,
+                runtime=runtime,
             )
-        )
+            asr_finals = [item for item in report.asr_report.results if item.is_final and item.text]
+            translations = [item for item in report.translations if item.status in {"translated", "skipped", "error"}]
+            last_asr = asr_finals[-1] if asr_finals else None
+            last_translation = translations[-1] if translations else None
+            entries.append(
+                GuidedTranslationEntry(
+                    prompt=prompt,
+                    report=report,
+                    asr_text=last_asr.text if last_asr else "",
+                    translation_status=last_translation.status if last_translation else "missing",
+                    translation_text=last_translation.text if last_translation else "",
+                    detected_language=last_asr.language if last_asr else None,
+                )
+            )
+    finally:
+        runtime.asr.asr_service.close()
+        runtime.asr.asr_service.join(timeout=30.0)
+        runtime.translation_service.close()
+        runtime.translation_service.join(timeout=config.translation.timeout_seconds)
 
     return GuidedTranslationReport(script_name=script_name, entries=entries, checks=checks)
 

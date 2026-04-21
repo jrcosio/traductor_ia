@@ -9,10 +9,14 @@ description = "Traductor de voz local en tiempo real"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "en-core-web-sm",
+    "kokoro>=0.9.4",
+    "misaki[en]>=0.9.4",
     "mlx-whisper>=0.4.3",
     "numpy>=2.4.4",
     "silero-vad>=6.2.1",
     "sounddevice>=0.5.5",
+    "soundfile>=0.13.1",
 ]
 
 [project.scripts]
@@ -21,3 +25,6 @@ traductor-benchmark-base = "traductor_tiempo_real.benchmark_base:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/traductor_tiempo_real"]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }

@@ -195,23 +195,23 @@ Generar voz entendible con inicio de audio rápido y sin bloquear el resto del p
 
 ### Entregables
 
-- [ ] Integración con `Kokoro-82M TTS`
-- [ ] Voz base por idioma definida:
-  - [ ] Español
-  - [ ] Inglés
-  - [ ] Francés
+- [x] Integración con `Kokoro-82M TTS`
+- [x] Voz base por idioma definida:
+  - [x] Español
+  - [x] Inglés
+  - [x] Francés
   - [ ] Alemán
-  - [ ] Italiano
-- [ ] Reproducción no bloqueante implementada
+  - [x] Italiano
+- [x] Reproducción no bloqueante implementada
 - [ ] Fallback de voz por idioma definido
-- [ ] Métricas de time-to-first-audio registradas
+- [x] Métricas de time-to-first-audio registradas
 
 ### Pruebas
 
-- [ ] Medición de time-to-first-audio
-- [ ] Medición de tiempo total de síntesis
+- [x] Medición de time-to-first-audio
+- [x] Medición de tiempo total de síntesis
 - [ ] Validación manual de inteligibilidad
-- [ ] Prueba de frases consecutivas
+- [x] Prueba de frases consecutivas
 
 ### Criterio de cierre
 
@@ -225,19 +225,19 @@ Unir captura, ASR, traducción y TTS en un flujo no bloqueante y medible.
 
 ### Entregables
 
-- [ ] Pipeline con `asyncio` implementado
-- [ ] Colas acotadas implementadas
-- [ ] Backpressure implementado
-- [ ] Eventos del pipeline definidos
-- [ ] Métricas end-to-end añadidas
-- [ ] Configuración de idioma destino de sesión aplicada en todo el flujo
+- [x] Pipeline con `asyncio` implementado
+- [x] Colas acotadas implementadas
+- [x] Backpressure implementado
+- [x] Eventos del pipeline definidos
+- [x] Métricas end-to-end añadidas
+- [x] Configuración de idioma destino de sesión aplicada en todo el flujo
 
 ### Pruebas
 
-- [ ] Test de integración con audio pregrabado
-- [ ] Test con micrófono real
+- [x] Test de integración con audio pregrabado
+- [x] Test con micrófono real
 - [ ] Test de estrés prolongado
-- [ ] Medición de RAM, CPU y tamaño de colas
+- [x] Medición de RAM, CPU y tamaño de colas
 
 ### Criterio de cierre
 

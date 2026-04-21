@@ -25,6 +25,9 @@ class ConfiguracionTestCase(unittest.TestCase):
         self.assertEqual(config.asr.model_repo, "mlx-community/whisper-large-v3-turbo")
         self.assertEqual(config.translation.preferred_model, "gemma4:26b")
         self.assertFalse(config.translation.think)
+        self.assertEqual(config.tts.backend, "kokoro")
+        self.assertEqual(config.tts.sample_rate, 24000)
+        self.assertEqual(config.pipeline.segments_queue_max_items, 4)
         self.assertTrue(config.benchmark.default_sample.name.endswith(".wav"))
 
     def test_permita_idioma_destino_valido(self) -> None:

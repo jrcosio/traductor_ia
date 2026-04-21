@@ -58,6 +58,37 @@ class TranslationConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class TtsConfig:
+    backend: str = "kokoro"
+    repo_id: str = "hexgrad/Kokoro-82M"
+    sample_rate: int = 24000
+    device: int | str | None = None
+    channels: int = 1
+    dtype: str = "float32"
+    blocksize: int = 2048
+    speed: float = 1.0
+    split_pattern: str = r"(?<=[.!?])\s+"
+    warmup_on_start: bool = True
+    queue_max_items: int = 32
+    voice_by_language: tuple[tuple[str, str | None], ...] = (
+        ("en", "af_heart"),
+        ("es", "ef_dora"),
+        ("fr", "ff_siwis"),
+        ("it", "if_sara"),
+        ("de", None),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PipelineConfig:
+    segments_queue_max_items: int = 4
+    translation_queue_max_items: int = 4
+    tts_queue_max_items: int = 4
+    event_queue_max_items: int = 128
+    dispatch_poll_interval_ms: int = 20
+
+
+@dataclass(frozen=True, slots=True)
 class BenchmarkConfig:
     default_sample: Path
     run_model_probe: bool = True
@@ -72,5 +103,7 @@ class AppConfig:
     vad: VadConfig
     asr: AsrConfig
     translation: TranslationConfig
+    tts: TtsConfig
+    pipeline: PipelineConfig
     benchmark: BenchmarkConfig
     debug: bool = False

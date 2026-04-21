@@ -17,8 +17,8 @@ from traductor_tiempo_real.configuracion.modelos import AppConfig
 from traductor_tiempo_real.metricas.eventos import CheckResult, CheckStatus
 from traductor_tiempo_real.metricas.reporte import BenchmarkReport
 from traductor_tiempo_real.metricas.tiempo import measure_stage
+from traductor_tiempo_real.pipeline.bootstrap import AsrRuntime, StartupCallback, bootstrap_asr_runtime
 from traductor_tiempo_real.vad.segmentador import SpeechSegmenter
-from traductor_tiempo_real.vad.silero import SileroSpeechDetector
 
 
 VALIDATION_SCRIPTS: dict[str, tuple[str, ...]] = {
@@ -93,39 +93,27 @@ def run_live_transcription(
     max_segments: int | None = None,
     enable_partials: bool | None = None,
     on_result: Callable[[AsrResult], None] | None = None,
+    runtime: AsrRuntime | None = None,
+    on_startup_step: StartupCallback | None = None,
+    on_ready: Callable[[], None] | None = None,
 ) -> LiveTranscriptionReport:
     if duration_seconds <= 0:
         raise ValueError("duration_seconds debe ser mayor que cero")
 
     allow_partials = config.asr.enable_partials if enable_partials is None else enable_partials
-    events = []
-    checks = []
+    own_runtime = runtime is None
+    runtime = runtime or bootstrap_asr_runtime(config, on_step=on_startup_step)
+    if on_ready is not None:
+        on_ready()
+
+    events = runtime.events
+    checks = runtime.checks
     results: list[AsrResult] = []
     emitted_partial_texts: dict[str, str] = {}
     language_history: dict[str, list[str]] = {}
-
-    with measure_stage("audio.device_probe", collector=events):
-        device_info = probe_default_input_device()
-        checks.append(
-            CheckResult(
-                name="audio.default_device",
-                status=CheckStatus.OK,
-                message="Dispositivo de entrada por defecto accesible.",
-                details={"name": device_info["name"], "sample_rate": device_info["default_samplerate"]},
-            )
-        )
-
-    with measure_stage("vad.load", collector=events):
-        detector = SileroSpeechDetector(config.vad)
-        checks.append(
-            CheckResult(
-                name="vad.silero.load",
-                status=CheckStatus.OK,
-                message="Silero VAD cargado correctamente.",
-            )
-        )
-
-    service = AsrProcessingService(config.asr, collector=events, checks=checks).start()
+    device_info = runtime.device_info
+    detector = runtime.detector
+    service = runtime.asr_service
     segmenter = SpeechSegmenter(config.audio, config.vad)
     capture = MicrophoneCapture(config.audio)
     frames_processed = 0
@@ -176,8 +164,6 @@ def run_live_transcription(
                 service.submit_final(segment)
 
     service.wait_until_drained(timeout_seconds=30.0)
-    service.close()
-    service.join(timeout=30.0)
     _drain_results(
         service,
         results=results,
@@ -185,6 +171,10 @@ def run_live_transcription(
         language_history=language_history,
         emitted_partial_texts=emitted_partial_texts,
     )
+
+    if own_runtime:
+        service.close()
+        service.join(timeout=30.0)
 
     checks.append(
         CheckResult(
@@ -240,6 +230,8 @@ def run_guided_validation(
     on_result: Callable[[AsrResult], None] | None = None,
     prompt_callback: Callable[[int, str], None] | None = None,
     wait_callback: Callable[[], None] | None = None,
+    on_startup_step: StartupCallback | None = None,
+    on_ready: Callable[[], None] | None = None,
 ) -> GuidedValidationReport:
     prompts = VALIDATION_SCRIPTS.get(script_name)
     if prompts is None:
@@ -255,29 +247,38 @@ def run_guided_validation(
         )
     ]
 
-    for index, prompt in enumerate(prompts, start=1):
-        if prompt_callback is not None:
-            prompt_callback(index, prompt)
-        if wait_callback is not None:
-            wait_callback()
+    runtime = bootstrap_asr_runtime(config, on_step=on_startup_step)
+    if on_ready is not None:
+        on_ready()
 
-        report = run_live_transcription(
-            config,
-            duration_seconds=segment_timeout,
-            max_segments=1,
-            enable_partials=False,
-            on_result=on_result,
-        )
-        finals = [result for result in report.results if result.is_final and result.text]
-        final = finals[-1] if finals else None
-        entries.append(
-            GuidedValidationEntry(
-                prompt=prompt,
-                report=report,
-                final_text=final.text if final else "",
-                detected_language=final.language if final else None,
+    try:
+        for index, prompt in enumerate(prompts, start=1):
+            if prompt_callback is not None:
+                prompt_callback(index, prompt)
+            if wait_callback is not None:
+                wait_callback()
+
+            report = run_live_transcription(
+                config,
+                duration_seconds=segment_timeout,
+                max_segments=1,
+                enable_partials=False,
+                on_result=on_result,
+                runtime=runtime,
             )
-        )
+            finals = [result for result in report.results if result.is_final and result.text]
+            final = finals[-1] if finals else None
+            entries.append(
+                GuidedValidationEntry(
+                    prompt=prompt,
+                    report=report,
+                    final_text=final.text if final else "",
+                    detected_language=final.language if final else None,
+                )
+            )
+    finally:
+        runtime.asr_service.close()
+        runtime.asr_service.join(timeout=30.0)
 
     return GuidedValidationReport(script_name=script_name, entries=entries, checks=checks)
 

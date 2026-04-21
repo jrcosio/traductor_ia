@@ -68,10 +68,28 @@ class TranslationProcessingService:
         self._tasks = _TranslationTaskQueue()
         self._results: SimpleQueue[TranslationResult] = SimpleQueue()
         self._worker: Thread | None = None
+        self._backend_initialized = False
+        self._warmed_up = False
+        self._unfinished_tasks = 0
+        self._state_condition = Condition()
 
-    def start(self) -> "TranslationProcessingService":
-        if self._worker is not None:
-            return self
+    def _register_task(self) -> None:
+        with self._state_condition:
+            self._unfinished_tasks += 1
+
+    def _complete_task(self) -> None:
+        with self._state_condition:
+            self._unfinished_tasks -= 1
+            self._state_condition.notify_all()
+
+    @property
+    def unfinished_tasks(self) -> int:
+        with self._state_condition:
+            return self._unfinished_tasks
+
+    def initialize_backend(self) -> None:
+        if self._backend_initialized:
+            return
 
         with measure_stage(
             "translation.backend_init",
@@ -86,17 +104,29 @@ class TranslationProcessingService:
                     details={"backend": self._config.backend, "model": self._config.preferred_model},
                 )
             )
+        self._backend_initialized = True
 
-        if self._config.warmup_on_start:
-            with measure_stage("translation.warmup", collector=self._collector):
-                self._backend.warmup()
-                self._checks.append(
-                    CheckResult(
-                        name="translation.warmup",
-                        status=CheckStatus.OK,
-                        message="Warmup del modelo de traducción completado.",
-                    )
+    def warmup(self) -> None:
+        self.initialize_backend()
+        if self._warmed_up or not self._config.warmup_on_start:
+            return
+
+        with measure_stage("translation.warmup", collector=self._collector):
+            self._backend.warmup()
+            self._checks.append(
+                CheckResult(
+                    name="translation.warmup",
+                    status=CheckStatus.OK,
+                    message="Warmup del modelo de traducción completado.",
                 )
+            )
+        self._warmed_up = True
+
+    def start(self) -> "TranslationProcessingService":
+        if self._worker is not None:
+            return self
+
+        self.warmup()
 
         self._worker = Thread(target=self._run, name="translation-worker", daemon=True)
         self._worker.start()
@@ -173,18 +203,22 @@ class TranslationProcessingService:
             )
             return
 
-        self._tasks.submit(
-            TranslationRequest(
-                request_id=uuid4().hex,
-                utterance_id=asr_result.utterance_id,
-                created_at=monotonic(),
-                source_text=source_text,
-                source_language=source_language,
-                target_language=target_language,
-                is_final=True,
-                metadata=asr_result.metadata,
-            )
+        request = TranslationRequest(
+            request_id=uuid4().hex,
+            utterance_id=asr_result.utterance_id,
+            created_at=monotonic(),
+            source_text=source_text,
+            source_language=source_language,
+            target_language=target_language,
+            is_final=True,
+            metadata=asr_result.metadata,
         )
+        self._register_task()
+        try:
+            self._tasks.submit(request)
+        except Exception:
+            self._complete_task()
+            raise
 
     def poll_results(self) -> list[TranslationResult]:
         drained: list[TranslationResult] = []
@@ -203,11 +237,12 @@ class TranslationProcessingService:
 
     def wait_until_drained(self, timeout_seconds: float = 30.0) -> None:
         deadline = monotonic() + timeout_seconds
-        while monotonic() < deadline:
-            if self._tasks.is_empty:
-                return
-            sleep(0.02)
-        raise TimeoutError("La cola de traducción no se vació dentro del tiempo esperado")
+        with self._state_condition:
+            while self._unfinished_tasks > 0:
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("La cola de traducción no se vació dentro del tiempo esperado")
+                self._state_condition.wait(timeout=remaining)
 
     def _emit_result(self, result: TranslationResult) -> None:
         self._results.put(result)
@@ -274,3 +309,4 @@ class TranslationProcessingService:
                 )
 
             self._emit_result(result)
+            self._complete_task()
