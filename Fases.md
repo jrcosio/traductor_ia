@@ -168,20 +168,20 @@ Traducir al idioma destino elegido al inicio con salida limpia, fiel y rápida.
 
 ### Entregables
 
-- [ ] Integración con `Ollama`
-- [ ] Prompt mínimo y estable definido
-- [ ] Soporte para idioma destino de sesión implementado
+- [x] Integración con `Ollama`
+- [x] Prompt mínimo y estable definido
+- [x] Soporte para idioma destino de sesión implementado
 - [ ] Comparativa `Qwen3-8B` vs `Gemma 4 27B` realizada
-- [ ] Métricas de latencia de traducción registradas
-- [ ] Modelo candidato del MVP seleccionado
+- [x] Métricas de latencia de traducción registradas
+- [x] Modelo candidato del MVP seleccionado
 
 ### Pruebas
 
-- [ ] Benchmark con frases de 3 palabras
-- [ ] Benchmark con frases de 8 palabras
-- [ ] Benchmark con frases de 15 palabras
-- [ ] Validación de fidelidad semántica
-- [ ] Validación de salida sin texto extra
+- [x] Benchmark con frases de 3 palabras
+- [x] Benchmark con frases de 8 palabras
+- [x] Benchmark con frases de 15 palabras
+- [x] Validación de fidelidad semántica
+- [x] Validación de salida sin texto extra
 
 ### Criterio de cierre
 

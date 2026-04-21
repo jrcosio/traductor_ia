@@ -23,6 +23,8 @@ class ConfiguracionTestCase(unittest.TestCase):
         self.assertEqual(config.vad.window_ms, 32)
         self.assertEqual(config.asr.backend, "mlx-whisper")
         self.assertEqual(config.asr.model_repo, "mlx-community/whisper-large-v3-turbo")
+        self.assertEqual(config.translation.preferred_model, "gemma4:26b")
+        self.assertFalse(config.translation.think)
         self.assertTrue(config.benchmark.default_sample.name.endswith(".wav"))
 
     def test_permita_idioma_destino_valido(self) -> None:

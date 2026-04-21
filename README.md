@@ -34,6 +34,17 @@ Este sprint añade ASR real sobre los segmentos detectados:
 - validación real hablando al micrófono
 - benchmark ASR sobre muestras locales de voz
 
+## Sprint 3
+
+Este sprint añade traducción semántica sobre los resultados finales del ASR:
+
+- integración con `Ollama`
+- uso de `gemma4:26b` por API local
+- salida limpia en JSON para extraer solo la traducción
+- salto automático de traducción si idioma origen y destino coinciden
+- traducción en vivo en terminal mostrando `ASR-FINAL` y `TRAD-FINAL` o `TRAD-SKIP`
+- benchmark de traducción con frases de 3, 8 y 15 palabras
+
 ## Uso rápido
 
 Mostrar la configuración base:
@@ -70,6 +81,24 @@ Ejecutar benchmark ASR sobre muestras locales:
 
 ```bash
 python main.py benchmark-asr
+```
+
+Ejecutar traducción en vivo en terminal:
+
+```bash
+python main.py --target-language en traducir-en-vivo --seconds 15
+```
+
+Ejecutar validación guiada de traducción:
+
+```bash
+python main.py --target-language en validar-traduccion-real --script es-basico
+```
+
+Ejecutar benchmark de traducción:
+
+```bash
+python main.py --target-language en benchmark-traduccion
 ```
 
 Ejecutar tests:

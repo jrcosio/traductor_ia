@@ -19,6 +19,15 @@ from traductor_tiempo_real.audio.diagnostico import render_capture_diagnostic, r
 from traductor_tiempo_real.benchmark_base import render_report, run_base_benchmark
 from traductor_tiempo_real.configuracion.carga import build_default_app_config
 from traductor_tiempo_real.configuracion.idiomas import target_language_choices
+from traductor_tiempo_real.traduccion.diagnostico import (
+    format_translation_result_line,
+    render_guided_translation_validation,
+    render_live_translation_summary,
+    render_translation_benchmark,
+    run_guided_translation_validation,
+    run_live_translation,
+    run_translation_benchmark,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -142,6 +151,60 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emite el reporte completo en JSON.",
     )
 
+    translation_live_parser = subparsers.add_parser(
+        "traducir-en-vivo",
+        help="Captura desde micrófono, transcribe y traduce en terminal.",
+    )
+    translation_live_parser.add_argument(
+        "--seconds",
+        type=float,
+        default=30.0,
+        help="Duración máxima de la sesión en segundos.",
+    )
+    translation_live_parser.add_argument(
+        "--max-segments",
+        type=int,
+        default=None,
+        help="Detiene la sesión al alcanzar este número de segmentos finales.",
+    )
+    translation_live_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emite el reporte final en JSON.",
+    )
+
+    translation_validation_parser = subparsers.add_parser(
+        "validar-traduccion-real",
+        help="Ejecuta validación guiada de traducción leyendo frases desde terminal.",
+    )
+    translation_validation_parser.add_argument(
+        "--script",
+        choices=tuple(VALIDATION_SCRIPTS.keys()),
+        default="es-basico",
+        help="Script de frases a validar.",
+    )
+    translation_validation_parser.add_argument(
+        "--segment-timeout",
+        type=float,
+        default=8.0,
+        help="Tiempo máximo por frase en segundos.",
+    )
+    translation_validation_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emite el reporte final en JSON.",
+    )
+
+    translation_benchmark_parser = subparsers.add_parser(
+        "benchmark-traduccion",
+        help="Ejecuta benchmark de traducción semántica sobre frases locales.",
+    )
+    translation_benchmark_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emite el reporte completo en JSON.",
+    )
+
     return parser
 
 
@@ -221,6 +284,54 @@ def main(argv: list[str] | None = None) -> int:
             print(report.to_json())
         else:
             print(render_asr_benchmark(report))
+        return 0 if report.is_successful() else 1
+
+    if args.command == "traducir-en-vivo":
+        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        print("Escuchando...")
+        report = run_live_translation(
+            config,
+            duration_seconds=args.seconds,
+            max_segments=args.max_segments,
+            on_asr_result=lambda result: print(
+                f"[ASR-FINAL][{result.language or '?'}][{result.latency_ms:.0f} ms] {result.text}",
+                flush=True,
+            ),
+            on_translation_result=lambda result: print(format_translation_result_line(result), flush=True),
+        )
+        if args.json:
+            print(report.to_json())
+        else:
+            print(render_live_translation_summary(report))
+        return 0 if report.is_successful() else 1
+
+    if args.command == "validar-traduccion-real":
+        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        report = run_guided_translation_validation(
+            config,
+            script_name=args.script,
+            segment_timeout=args.segment_timeout,
+            on_asr_result=lambda result: print(
+                f"[ASR-FINAL][{result.language or '?'}][{result.latency_ms:.0f} ms] {result.text}",
+                flush=True,
+            ),
+            on_translation_result=lambda result: print(format_translation_result_line(result), flush=True),
+            prompt_callback=lambda index, prompt: print(f"Frase {index}: {prompt}"),
+            wait_callback=lambda: input("Pulsa Enter y habla ahora... "),
+        )
+        if args.json:
+            print(report.to_json())
+        else:
+            print(render_guided_translation_validation(report))
+        return 0 if report.is_successful() else 1
+
+    if args.command == "benchmark-traduccion":
+        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        report = run_translation_benchmark(config)
+        if args.json:
+            print(report.to_json())
+        else:
+            print(render_translation_benchmark(report))
         return 0 if report.is_successful() else 1
 
     parser.error(f"Comando no soportado: {args.command}")

@@ -45,8 +45,16 @@ class AsrConfig:
 @dataclass(frozen=True, slots=True)
 class TranslationConfig:
     backend: str = "ollama"
-    preferred_model: str = "qwen3:8b"
-    candidate_models: tuple[str, ...] = ("qwen3:8b", "gemma4:27b")
+    preferred_model: str = "gemma4:26b"
+    candidate_models: tuple[str, ...] = ("gemma4:26b", "qwen3:8b")
+    base_url: str = "http://localhost:11434"
+    think: bool = False
+    stream: bool = False
+    temperature: float = 0.0
+    timeout_seconds: float = 120.0
+    keep_alive: str = "10m"
+    structured_output: bool = True
+    warmup_on_start: bool = True
 
 
 @dataclass(frozen=True, slots=True)
