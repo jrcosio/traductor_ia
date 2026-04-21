@@ -51,6 +51,34 @@ class SpeechSegment:
 
 
 @dataclass(frozen=True, slots=True)
+class ActiveSpeechSnapshot:
+    segment_id: str
+    created_at: float
+    started_at: float
+    updated_at: float
+    duration_ms: float
+    sample_rate: int
+    frame_count: int
+    samples: np.ndarray
+    energy_rms: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "segment_id": self.segment_id,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "updated_at": self.updated_at,
+            "duration_ms": self.duration_ms,
+            "sample_rate": self.sample_rate,
+            "frame_count": self.frame_count,
+            "sample_count": int(self.samples.size),
+            "energy_rms": self.energy_rms,
+            "metadata": self.metadata,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CaptureDiagnosticReport:
     duration_seconds: float
     device_info: dict[str, Any]

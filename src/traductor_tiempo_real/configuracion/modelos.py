@@ -28,6 +28,21 @@ class VadConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class AsrConfig:
+    backend: str = "mlx-whisper"
+    model_repo: str = "mlx-community/whisper-large-v3-turbo"
+    detect_language: bool = True
+    enable_partials: bool = True
+    partial_interval_ms: int = 400
+    min_partial_ms: int = 640
+    no_speech_threshold: float = 0.6
+    condition_on_previous_text: bool = False
+    compression_ratio_threshold: float = 2.4
+    logprob_threshold: float = -1.0
+    warmup_on_start: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class TranslationConfig:
     backend: str = "ollama"
     preferred_model: str = "qwen3:8b"
@@ -47,6 +62,7 @@ class AppConfig:
     target_language: LanguageCode
     audio: AudioConfig
     vad: VadConfig
+    asr: AsrConfig
     translation: TranslationConfig
     benchmark: BenchmarkConfig
     debug: bool = False

@@ -140,20 +140,20 @@ Obtener transcripción parcial y final con baja latencia y con detección autom�
 
 ### Entregables
 
-- [ ] `Whisper Large V3 Turbo` integrado
-- [ ] Estrategia incremental por fragmentos implementada
-- [ ] Soporte de resultados parciales implementado
-- [ ] Soporte de resultados finales implementado
-- [ ] Detección automática del idioma habilitada
-- [ ] Registro del idioma detectado por segmento implementado
-- [ ] Registro de estabilidad del idioma detectado implementado
+- [x] `Whisper Large V3 Turbo` integrado
+- [x] Estrategia incremental por fragmentos implementada
+- [x] Soporte de resultados parciales implementado
+- [x] Soporte de resultados finales implementado
+- [x] Detección automática del idioma habilitada
+- [x] Registro del idioma detectado por segmento implementado
+- [x] Registro de estabilidad del idioma detectado implementado
 
 ### Pruebas
 
-- [ ] Test de transcripción con audios cortos
-- [ ] Test de transcripción con audios medios
+- [x] Test de transcripción con audios cortos
+- [x] Test de transcripción con audios medios
 - [ ] Medición de tiempo a primer parcial
-- [ ] Medición de tiempo a texto final
+- [x] Medición de tiempo a texto final
 - [ ] Validación de estabilidad de detección de idioma en segmentos de 1 a 3 segundos
 
 ### Criterio de cierre

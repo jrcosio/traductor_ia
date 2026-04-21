@@ -21,6 +21,8 @@ class ConfiguracionTestCase(unittest.TestCase):
         self.assertEqual(config.audio.sample_rate, 16000)
         self.assertEqual(config.audio.blocksize, 512)
         self.assertEqual(config.vad.window_ms, 32)
+        self.assertEqual(config.asr.backend, "mlx-whisper")
+        self.assertEqual(config.asr.model_repo, "mlx-community/whisper-large-v3-turbo")
         self.assertTrue(config.benchmark.default_sample.name.endswith(".wav"))
 
     def test_permita_idioma_destino_valido(self) -> None:

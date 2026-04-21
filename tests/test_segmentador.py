@@ -76,6 +76,18 @@ class SegmentadorTestCase(unittest.TestCase):
         self.assertEqual(len(segments), 1)
         self.assertEqual(segments[0].metadata["reason"], "max_segment")
 
+    def test_snapshot_activo_usa_mismo_segment_id_que_el_final(self) -> None:
+        segmenter = SpeechSegmenter(self.audio_config, self.vad_config)
+        for index in range(4):
+            segmenter.process_frame(build_frame(index, 0.7), is_speech=True)
+
+        snapshot = segmenter.snapshot()
+        self.assertIsNotNone(snapshot)
+        self.assertGreater(snapshot.duration_ms, 0)
+
+        final = segmenter.flush()[0]
+        self.assertEqual(snapshot.segment_id, final.segment_id)
+
     def test_ruido_sin_voz_no_emite_segmentos(self) -> None:
         segmenter = SpeechSegmenter(self.audio_config, self.vad_config)
         segments = []
