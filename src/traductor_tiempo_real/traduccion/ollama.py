@@ -19,19 +19,14 @@ def get_language_name(value: str | None) -> str:
 
 
 def build_translation_system_prompt() -> str:
-    return (
-        "Eres un traductor profesional. "
-        "Devuelve solo un JSON válido con la clave translation. "
-        "No añadas explicaciones, notas, comentarios ni texto fuera del JSON."
-    )
+    return 'Traduce fielmente. Responde solo JSON válido: {"translation":"..."}.'
 
 
 def build_translation_user_prompt(source_text: str, source_language: str | None, target_language: str) -> str:
     return (
-        f"Idioma origen detectado: {get_language_name(source_language)}.\n"
-        f"Idioma destino: {get_language_name(target_language)}.\n"
-        f"Traduce el siguiente texto y responde solo con JSON válido usando la clave translation.\n"
-        f"Texto fuente: {source_text}"
+        f"Origen: {get_language_name(source_language)}\n"
+        f"Destino: {get_language_name(target_language)}\n"
+        f"Texto: {source_text}"
     )
 
 
@@ -63,11 +58,17 @@ class OllamaTranslationBackend:
     def warmup(self) -> None:
         payload = {
             "model": self._config.preferred_model,
-            "messages": [],
+            "messages": [
+                {"role": "system", "content": build_translation_system_prompt()},
+                {"role": "user", "content": build_translation_user_prompt("Hola.", "es", "en")},
+            ],
             "stream": False,
             "keep_alive": self._config.keep_alive,
             "think": self._config.think,
+            "options": {"temperature": 0.0, "num_predict": min(self._config.num_predict, 16)},
         }
+        if self._config.structured_output:
+            payload["format"] = _translation_response_format()
         self._post_chat(payload)
 
     def translate(self, source_text: str, *, source_language: str | None, target_language: str) -> tuple[str, dict[str, object]]:
@@ -87,14 +88,10 @@ class OllamaTranslationBackend:
             "stream": self._config.stream,
             "think": self._config.think,
             "keep_alive": self._config.keep_alive,
-            "options": {"temperature": self._config.temperature},
+            "options": {"temperature": self._config.temperature, "num_predict": self._config.num_predict},
         }
         if self._config.structured_output:
-            payload["format"] = {
-                "type": "object",
-                "properties": {"translation": {"type": "string"}},
-                "required": ["translation"],
-            }
+            payload["format"] = _translation_response_format()
 
         response_payload = self._post_chat(payload)
         message = response_payload.get("message", {})
@@ -118,3 +115,11 @@ class OllamaTranslationBackend:
         )
         with request.urlopen(req, timeout=self._config.timeout_seconds) as response:
             return json.loads(response.read().decode())
+
+
+def _translation_response_format() -> dict[str, object]:
+    return {
+        "type": "object",
+        "properties": {"translation": {"type": "string"}},
+        "required": ["translation"],
+    }

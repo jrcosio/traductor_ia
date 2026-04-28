@@ -15,7 +15,10 @@ from traductor_tiempo_real.metricas.tiempo import measure_stage
 
 
 class _AsrTaskQueue:
-    def __init__(self) -> None:
+    def __init__(self, max_items: int) -> None:
+        if max_items <= 0:
+            raise ValueError("max_items debe ser mayor que cero")
+        self._max_items = max_items
         self._pending: deque[AsrRequest] = deque()
         self._closed = False
         self._condition = Condition()
@@ -25,11 +28,15 @@ class _AsrTaskQueue:
         with self._condition:
             return not self._pending
 
-    def submit(self, request: AsrRequest) -> None:
+    def submit(self, request: AsrRequest) -> int:
         with self._condition:
             if self._closed:
                 raise RuntimeError("La cola ASR ya está cerrada")
+            dropped = 0
             if request.is_final:
+                if len(self._pending) >= self._max_items:
+                    self._pending.popleft()
+                    dropped += 1
                 self._pending.append(request)
             else:
                 replaced = False
@@ -37,10 +44,15 @@ class _AsrTaskQueue:
                     if not existing.is_final and existing.utterance_id == request.utterance_id:
                         self._pending[index] = request
                         replaced = True
+                        dropped += 1
                         break
                 if not replaced:
+                    if len(self._pending) >= self._max_items:
+                        self._pending.popleft()
+                        dropped += 1
                     self._pending.append(request)
             self._condition.notify()
+            return dropped
 
     def get(self, timeout: float = 0.1) -> AsrRequest | None:
         with self._condition:
@@ -73,7 +85,7 @@ class AsrProcessingService:
         self._collector = collector if collector is not None else []
         self._checks = checks if checks is not None else []
         self._backend = backend or MlxWhisperBackend(config)
-        self._tasks = _AsrTaskQueue()
+        self._tasks = _AsrTaskQueue(config.queue_max_items)
         self._results: SimpleQueue[AsrResult] = SimpleQueue()
         self._worker: Thread | None = None
         self._backend_initialized = False
@@ -154,7 +166,7 @@ class AsrProcessingService:
         )
         self._register_task()
         try:
-            self._tasks.submit(request)
+            self._complete_dropped_tasks(self._tasks.submit(request), "asr.queue.partial")
         except Exception:
             self._complete_task()
             raise
@@ -173,7 +185,7 @@ class AsrProcessingService:
         )
         self._register_task()
         try:
-            self._tasks.submit(request)
+            self._complete_dropped_tasks(self._tasks.submit(request), "asr.queue.final")
         except Exception:
             self._complete_task()
             raise
@@ -257,3 +269,16 @@ class AsrProcessingService:
                 )
             self._results.put(result)
             self._complete_task()
+
+    def _complete_dropped_tasks(self, dropped: int, check_name: str) -> None:
+        for _ in range(dropped):
+            self._complete_task()
+        if dropped:
+            self._checks.append(
+                CheckResult(
+                    name=check_name,
+                    status=CheckStatus.WARNING,
+                    message="Cola ASR saturada; se descartaron solicitudes pendientes.",
+                    details={"dropped": dropped, "queue_max_items": self._config.queue_max_items},
+                )
+            )

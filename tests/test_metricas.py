@@ -10,6 +10,7 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from traductor_tiempo_real.metricas.reporte import BenchmarkReport
+from traductor_tiempo_real.metricas.estadisticas import latency_summary, percentile
 from traductor_tiempo_real.metricas.tiempo import measure_stage
 
 
@@ -40,6 +41,15 @@ class MetricasTestCase(unittest.TestCase):
         payload = report.to_dict()
         self.assertEqual(payload["name"], "reporte_test")
         self.assertEqual(payload["events"][0]["stage"], "prueba.reporte")
+
+    def test_percentiles_de_latencia(self) -> None:
+        values = [100.0, 200.0, 300.0, 400.0]
+
+        self.assertEqual(percentile(values, 50), 250.0)
+        summary = latency_summary(values)
+        self.assertEqual(summary["count"], 4)
+        self.assertEqual(summary["p50_ms"], 250.0)
+        self.assertEqual(summary["p95_ms"], 385.0)
 
 
 if __name__ == "__main__":

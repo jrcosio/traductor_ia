@@ -223,6 +223,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emite el reporte completo en JSON.",
     )
+    translation_benchmark_parser.add_argument(
+        "--model",
+        default=None,
+        help="Modelo de Ollama a medir en este benchmark.",
+    )
+    translation_benchmark_parser.add_argument(
+        "--compare-models",
+        action="store_true",
+        help="Mide todos los modelos candidatos configurados.",
+    )
 
     tts_parser = subparsers.add_parser(
         "tts-diagnostico",
@@ -466,7 +476,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "benchmark-traduccion":
         config = build_default_app_config(target_language=args.target_language, debug=args.debug)
-        report = run_translation_benchmark(config)
+        report = run_translation_benchmark(config, model=args.model, compare_models=args.compare_models)
         if args.json:
             print(report.to_json())
         else:

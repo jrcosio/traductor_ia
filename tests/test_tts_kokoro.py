@@ -21,8 +21,8 @@ class TtsKokoroTestCase(unittest.TestCase):
         self.assertEqual(voice_map["fr"], "ff_siwis")
         self.assertEqual(voice_map["it"], "if_sara")
 
-    def test_aleman_queda_pendiente(self) -> None:
-        self.assertIsNone(get_voice_for_language("de", TtsConfig()))
+    def test_idioma_no_configurado_no_tiene_voz(self) -> None:
+        self.assertIsNone(get_voice_for_language("pt", TtsConfig()))
 
 
 if __name__ == "__main__":

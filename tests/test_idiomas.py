@@ -14,7 +14,7 @@ from traductor_tiempo_real.configuracion.idiomas import LanguageCode, get_langua
 
 class IdiomasTestCase(unittest.TestCase):
     def test_catalogo_cerrado_de_idiomas(self) -> None:
-        self.assertEqual(target_language_choices(), ("es", "en", "fr", "de", "it"))
+        self.assertEqual(target_language_choices(), ("es", "en", "fr", "it"))
 
     def test_parsea_idioma_valido(self) -> None:
         self.assertEqual(parse_target_language("FR"), LanguageCode.FR)
@@ -24,9 +24,9 @@ class IdiomasTestCase(unittest.TestCase):
             parse_target_language("pt")
 
     def test_recupera_metadatos_del_idioma(self) -> None:
-        option = get_language_option("de")
-        self.assertEqual(option.label, "Alemán")
-        self.assertEqual(option.prompt_name, "alemán")
+        option = get_language_option("it")
+        self.assertEqual(option.label, "Italiano")
+        self.assertEqual(option.prompt_name, "italiano")
 
 
 if __name__ == "__main__":

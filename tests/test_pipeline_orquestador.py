@@ -187,6 +187,8 @@ class PipelineOrquestadorTestCase(unittest.TestCase):
         self.assertEqual(report.tts_results[0].status, "played")
         self.assertIn("segments", report.queue_stats.maxsizes)
         self.assertTrue(report.events)
+        self.assertEqual(report.latency_summary()["end_to_end_to_first_audio"]["count"], 1)
+        self.assertIn("latency_summary", report.to_dict())
 
 
 if __name__ == "__main__":

@@ -527,6 +527,12 @@ def render_pipeline_summary(report: PipelineReport) -> str:
     ]
     if report.utterance_metrics:
         lines.append("")
+        lines.append("Resumen de latencias:")
+        for name, summary in report.latency_summary().items():
+            lines.append(
+                f"- {name}: n={summary['count']} p50={summary['p50_ms']} ms p95={summary['p95_ms']} ms p99={summary['p99_ms']} ms"
+            )
+        lines.append("")
         lines.append("Métricas end-to-end:")
         for utterance_id, trace in report.utterance_metrics.items():
             data = trace.to_dict()

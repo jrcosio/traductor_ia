@@ -8,7 +8,6 @@ class LanguageCode(StrEnum):
     ES = "es"
     EN = "en"
     FR = "fr"
-    DE = "de"
     IT = "it"
 
 
@@ -24,7 +23,6 @@ SUPPORTED_TARGET_LANGUAGES: dict[LanguageCode, LanguageOption] = {
     LanguageCode.ES: LanguageOption(LanguageCode.ES, "Español", "español", "spanish"),
     LanguageCode.EN: LanguageOption(LanguageCode.EN, "Inglés", "inglés", "english"),
     LanguageCode.FR: LanguageOption(LanguageCode.FR, "Francés", "francés", "french"),
-    LanguageCode.DE: LanguageOption(LanguageCode.DE, "Alemán", "alemán", "german"),
     LanguageCode.IT: LanguageOption(LanguageCode.IT, "Italiano", "italiano", "italian"),
 }
 

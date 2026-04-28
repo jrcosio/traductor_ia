@@ -15,7 +15,7 @@ Construir una aplicación de traducción de voz en tiempo real o casi real con e
 
 1. Captura y segmentación con `sounddevice` + `Silero VAD`
 2. Transcripción con `Whisper Large V3 Turbo`
-3. Traducción semántica con `Qwen3-8B` o `Gemma 4 27B` en `Ollama`
+3. Traducción semántica con `gemma4:26b` en `Ollama`, con `qwen3:8b` como candidato pendiente de comparativa
 4. Síntesis de voz con `Kokoro-82M TTS`
 
 El flujo funcional del producto es: escuchar audio desde el micrófono, detectar la voz, transcribirla, traducirla al idioma destino elegido al inicio y reproducir la traducción sintetizada en voz.
@@ -34,7 +34,6 @@ Objetivos de latencia:
   - [ ] Español
   - [ ] Inglés
   - [ ] Francés
-  - [ ] Alemán
   - [ ] Italiano
 - [ ] La traducción usa siempre el idioma destino de la sesión.
 - [ ] El TTS usa siempre el idioma destino de la sesión.
@@ -79,7 +78,6 @@ Disponer de una base mínima medible para construir el pipeline sin perder visib
   - [x] `es`
   - [x] `en`
   - [x] `fr`
-  - [x] `de`
   - [x] `it`
 - [x] Utilidades de métricas creadas
 - [x] Benchmark base sobre audios pregrabados preparado
@@ -171,7 +169,7 @@ Traducir al idioma destino elegido al inicio con salida limpia, fiel y rápida.
 - [x] Integración con `Ollama`
 - [x] Prompt mínimo y estable definido
 - [x] Soporte para idioma destino de sesión implementado
-- [ ] Comparativa `Qwen3-8B` vs `Gemma 4 27B` realizada
+- [ ] Comparativa `qwen3:8b` vs `gemma4:26b` realizada
 - [x] Métricas de latencia de traducción registradas
 - [x] Modelo candidato del MVP seleccionado
 
@@ -200,7 +198,6 @@ Generar voz entendible con inicio de audio rápido y sin bloquear el resto del p
   - [x] Español
   - [x] Inglés
   - [x] Francés
-  - [ ] Alemán
   - [x] Italiano
 - [x] Reproducción no bloqueante implementada
 - [ ] Fallback de voz por idioma definido
@@ -253,23 +250,29 @@ Bajar de `1 segundo` y acercarse a `500 ms` cuando sea viable.
 
 - [ ] Ajuste fino de umbrales VAD
 - [ ] Ajuste fino de tamaños de chunk
-- [ ] Ajuste del prompt y parámetros del LLM
-- [ ] Modelos precalentados y persistentes
+- [x] Ajuste del prompt y parámetros del LLM
+- [x] Modelos precalentados y persistentes
 - [ ] Copias y conversiones innecesarias reducidas
 - [ ] Estrategia de disparo de traducción validada
 - [ ] Estrategia de disparo de TTS validada
 
 ### Pruebas
 
-- [ ] Benchmark antes y después de cada ajuste
-- [ ] Medición p50
-- [ ] Medición p95
-- [ ] Medición p99
+- [x] Benchmark antes y después de cada ajuste
+- [x] Medición p50
+- [x] Medición p95
+- [x] Medición p99
 - [ ] Validación en sesiones largas
 
 ### Criterio de cierre
 
 Sprint cerrado cuando el sistema cumpla el objetivo operativo y tenga casos cortos cercanos al ideal.
+
+### Mediciones Sprint 6
+
+- [x] `uv run traductor-ia --target-language en benchmark-traduccion --json`: `gemma4:26b` midió `344-571 ms` en frases de 3, 8 y 15 palabras con salida JSON limpia.
+- [x] `uv run traductor-ia --target-language en benchmark-traduccion --compare-models --json`: `gemma4:26b` medido; `qwen3:8b` no disponible en Ollama (`HTTP 404`), por lo que la comparativa de calidad/latencia sigue pendiente.
+- [x] `uv run traductor-ia --target-language en benchmark-pipeline --json`: p50 end-to-end hasta traducción `1244 ms`, p95 `1823 ms`; p50 hasta primer audio `1732 ms`, p95 `2623 ms`.
 
 ## Sprint 7. MVP usable
 
@@ -285,12 +288,11 @@ Tener una versión utilizable, repetible y fácil de depurar.
   - [ ] Español
   - [ ] Inglés
   - [ ] Francés
-  - [ ] Alemán
   - [ ] Italiano
 - [ ] Idioma de entrada automático mantenido
 - [ ] Logging claro implementado
 - [ ] Modo benchmark implementado
-- [ ] Documentación de instalación y uso escrita
+- [x] Documentación de instalación y uso escrita
 
 ### Pruebas
 
@@ -341,7 +343,7 @@ Sprint cerrado cuando el MVP pueda usarse localmente de forma repetible.
 
 ## Riesgos principales
 
-1. `Gemma 4 27B` puede ser demasiado pesado para cumplir el objetivo de latencia del MVP.
+1. `gemma4:26b` puede ser demasiado pesado para cumplir el objetivo de latencia del MVP.
 2. `Whisper Large V3 Turbo` puede exigir un backend muy optimizado para cumplir tiempos.
 3. La suma de pequeñas demoras entre etapas puede romper el objetivo global.
 4. Un VAD demasiado conservador puede hacer que el sistema se sienta lento.

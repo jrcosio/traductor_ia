@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 from traductor_tiempo_real.asr.diagnostico import VALIDATION_SCRIPTS, format_asr_result_line, run_live_transcription
 from traductor_tiempo_real.asr.modelos import AsrResult
@@ -202,7 +203,7 @@ def render_guided_translation_validation(report: GuidedTranslationReport) -> str
     return "\n".join(lines)
 
 
-def run_translation_benchmark(config: AppConfig) -> BenchmarkReport:
+def run_translation_benchmark(config: AppConfig, *, model: str | None = None, compare_models: bool = False) -> BenchmarkReport:
     events = []
     checks = []
     results = []
@@ -210,60 +211,91 @@ def run_translation_benchmark(config: AppConfig) -> BenchmarkReport:
     cases = build_translation_benchmark_cases(config.target_language.value)
     from traductor_tiempo_real.traduccion.ollama import OllamaTranslationBackend
 
-    with measure_stage(
-        "translation.benchmark_backend_init",
-        collector=events,
-        metadata={"model": config.translation.preferred_model},
-    ):
-        backend = OllamaTranslationBackend(config.translation)
-        checks.append(
-            CheckResult(
-                name="translation.benchmark.backend",
-                status=CheckStatus.OK,
-                message="Backend de benchmark de traducción inicializado.",
-                details={"model": config.translation.preferred_model},
+    if compare_models:
+        models = tuple(dict.fromkeys(config.translation.candidate_models))
+    else:
+        models = (model or config.translation.preferred_model,)
+
+    for current_model in models:
+        translation_config = replace(config.translation, preferred_model=current_model)
+        try:
+            with measure_stage(
+                "translation.benchmark_backend_init",
+                collector=events,
+                metadata={"model": current_model},
+            ):
+                backend = OllamaTranslationBackend(translation_config)
+                checks.append(
+                    CheckResult(
+                        name="translation.benchmark.backend",
+                        status=CheckStatus.OK,
+                        message="Backend de benchmark de traducción inicializado.",
+                        details={"model": current_model},
+                    )
+                )
+
+            with measure_stage("translation.benchmark_warmup", collector=events, metadata={"model": current_model}):
+                backend.warmup()
+                checks.append(
+                    CheckResult(
+                        name="translation.benchmark.warmup",
+                        status=CheckStatus.OK,
+                        message="Warmup del benchmark de traducción completado.",
+                        details={"model": current_model},
+                    )
+                )
+        except Exception as exc:
+            checks.append(
+                CheckResult(
+                    name="translation.benchmark.model_unavailable",
+                    status=CheckStatus.WARNING if compare_models else CheckStatus.ERROR,
+                    message="No se pudo preparar el modelo de traducción para benchmark.",
+                    details={"model": current_model, "error": str(exc)},
+                )
             )
-        )
+            continue
 
-    with measure_stage("translation.benchmark_warmup", collector=events):
-        backend.warmup()
-        checks.append(
-            CheckResult(
-                name="translation.benchmark.warmup",
-                status=CheckStatus.OK,
-                message="Warmup del benchmark de traducción completado.",
+        for case in cases:
+            try:
+                with measure_stage(
+                    "translation.benchmark_generate",
+                    collector=events,
+                    metadata={"label": case["label"], "target_language": config.target_language.value, "model": current_model},
+                ):
+                    import time
+
+                    started = time.perf_counter()
+                    translated_text, metadata = backend.translate(
+                        case["text"],
+                        source_language=case["source_language"],
+                        target_language=config.target_language.value,
+                    )
+                    latency_ms = (time.perf_counter() - started) * 1000
+            except Exception as exc:
+                checks.append(
+                    CheckResult(
+                        name="translation.benchmark.generate",
+                        status=CheckStatus.WARNING if compare_models else CheckStatus.ERROR,
+                        message="Falló una generación del benchmark de traducción.",
+                        details={"model": current_model, "label": case["label"], "error": str(exc)},
+                    )
+                )
+                continue
+
+            results.append(
+                {
+                    "model": current_model,
+                    "label": case["label"],
+                    "source_language": case["source_language"],
+                    "target_language": config.target_language.value,
+                    "source_text": case["text"],
+                    "translation": translated_text,
+                    "latency_ms": latency_ms,
+                    **metadata,
+                }
             )
-        )
 
-    for case in cases:
-        with measure_stage(
-            "translation.benchmark_generate",
-            collector=events,
-            metadata={"label": case["label"], "target_language": config.target_language.value},
-        ):
-            import time
-
-            started = time.perf_counter()
-            translated_text, metadata = backend.translate(
-                case["text"],
-                source_language=case["source_language"],
-                target_language=config.target_language.value,
-            )
-            latency_ms = (time.perf_counter() - started) * 1000
-
-        results.append(
-            {
-                "label": case["label"],
-                "source_language": case["source_language"],
-                "target_language": config.target_language.value,
-                "source_text": case["text"],
-                "translation": translated_text,
-                "latency_ms": latency_ms,
-                **metadata,
-            }
-        )
-
-    if all(item.get("parse_mode") == "json" and item.get("translation") for item in results):
+    if results and all(item.get("parse_mode") == "json" and item.get("translation") for item in results):
         checks.append(
             CheckResult(
                 name="translation.benchmark.clean_output",
@@ -285,7 +317,9 @@ def run_translation_benchmark(config: AppConfig) -> BenchmarkReport:
         environment={"project_root": str(config.project_root)},
         configuration={
             "backend": config.translation.backend,
-            "model": config.translation.preferred_model,
+            "model": model or config.translation.preferred_model,
+            "compare_models": compare_models,
+            "candidate_models": list(models),
             "target_language": config.target_language.value,
         },
         events=events,

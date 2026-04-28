@@ -15,7 +15,10 @@ from traductor_tiempo_real.traduccion.ollama import OllamaTranslationBackend
 
 
 class _TranslationTaskQueue:
-    def __init__(self) -> None:
+    def __init__(self, max_items: int) -> None:
+        if max_items <= 0:
+            raise ValueError("max_items debe ser mayor que cero")
+        self._max_items = max_items
         self._pending: deque[TranslationRequest] = deque()
         self._closed = False
         self._condition = Condition()
@@ -25,12 +28,17 @@ class _TranslationTaskQueue:
         with self._condition:
             return not self._pending
 
-    def submit(self, request: TranslationRequest) -> None:
+    def submit(self, request: TranslationRequest) -> int:
         with self._condition:
             if self._closed:
                 raise RuntimeError("La cola de traducción ya está cerrada")
+            dropped = 0
+            if len(self._pending) >= self._max_items:
+                self._pending.popleft()
+                dropped += 1
             self._pending.append(request)
             self._condition.notify()
+            return dropped
 
     def get(self, timeout: float = 0.1) -> TranslationRequest | None:
         with self._condition:
@@ -65,7 +73,7 @@ class TranslationProcessingService:
         self._checks = checks if checks is not None else []
         self._backend = backend or OllamaTranslationBackend(config)
         self._result_callback = result_callback
-        self._tasks = _TranslationTaskQueue()
+        self._tasks = _TranslationTaskQueue(config.queue_max_items)
         self._results: SimpleQueue[TranslationResult] = SimpleQueue()
         self._worker: Thread | None = None
         self._backend_initialized = False
@@ -215,7 +223,7 @@ class TranslationProcessingService:
         )
         self._register_task()
         try:
-            self._tasks.submit(request)
+            self._complete_dropped_tasks(self._tasks.submit(request))
         except Exception:
             self._complete_task()
             raise
@@ -310,3 +318,16 @@ class TranslationProcessingService:
 
             self._emit_result(result)
             self._complete_task()
+
+    def _complete_dropped_tasks(self, dropped: int) -> None:
+        for _ in range(dropped):
+            self._complete_task()
+        if dropped:
+            self._checks.append(
+                CheckResult(
+                    name="translation.queue",
+                    status=CheckStatus.WARNING,
+                    message="Cola de traducción saturada; se descartaron solicitudes pendientes.",
+                    details={"dropped": dropped, "queue_max_items": self._config.queue_max_items},
+                )
+            )

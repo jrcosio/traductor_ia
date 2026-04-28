@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from traductor_tiempo_real.asr.modelos import AsrResult
-from traductor_tiempo_real.metricas.eventos import CheckResult
+from traductor_tiempo_real.metricas.estadisticas import latency_summary
+from traductor_tiempo_real.metricas.eventos import CheckResult, CheckStatus
 from traductor_tiempo_real.traduccion.modelos import TranslationResult
 from traductor_tiempo_real.tts.modelos import TtsResult
 
@@ -124,7 +125,24 @@ class PipelineReport:
     max_rss_mb: float = 0.0
 
     def is_successful(self) -> bool:
-        return not any(check.status == "error" for check in self.checks)
+        return not any(check.status == CheckStatus.ERROR for check in self.checks)
+
+    def latency_summary(self) -> dict[str, dict[str, float | int | None]]:
+        traces = [trace.to_dict() for trace in self.utterance_metrics.values()]
+        translation_latencies = [
+            value
+            for value in (trace["end_to_end_to_translation_ms"] for trace in traces)
+            if value is not None
+        ]
+        first_audio_latencies = [
+            value
+            for value in (trace["end_to_end_to_first_audio_ms"] for trace in traces)
+            if value is not None
+        ]
+        return {
+            "end_to_end_to_translation": latency_summary(translation_latencies),
+            "end_to_end_to_first_audio": latency_summary(first_audio_latencies),
+        }
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -142,6 +160,7 @@ class PipelineReport:
             "checks": [item.to_dict() for item in self.checks],
             "queue_stats": self.queue_stats.to_dict(),
             "utterance_metrics": {key: value.to_dict() for key, value in self.utterance_metrics.items()},
+            "latency_summary": self.latency_summary(),
             "cpu_time_seconds": self.cpu_time_seconds,
             "max_rss_mb": self.max_rss_mb,
         }

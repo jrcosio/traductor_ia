@@ -80,6 +80,20 @@ class TraduccionServicioTestCase(unittest.TestCase):
         self.assertEqual(results[0].text, "trad:Hola, esto es una prueba.")
         self.assertEqual(len(backend.calls), 1)
 
+    def test_acota_cola_interna_de_traduccion(self) -> None:
+        checks = []
+        service = TranslationProcessingService(
+            TranslationConfig(warmup_on_start=False, queue_max_items=1),
+            backend=FakeTranslationBackend(),
+            checks=checks,
+        )
+
+        service.submit_asr_result(build_asr_result("Primera frase.", "es"), target_language="en")
+        service.submit_asr_result(build_asr_result("Segunda frase.", "es"), target_language="en")
+
+        self.assertEqual(service.unfinished_tasks, 1)
+        self.assertEqual(checks[-1].name, "translation.queue")
+
 
 if __name__ == "__main__":
     unittest.main()

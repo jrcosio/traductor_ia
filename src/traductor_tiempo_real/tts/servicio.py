@@ -16,7 +16,10 @@ from traductor_tiempo_real.tts.reproductor import SoundDeviceAudioPlayer
 
 
 class _TtsTaskQueue:
-    def __init__(self) -> None:
+    def __init__(self, max_items: int) -> None:
+        if max_items <= 0:
+            raise ValueError("max_items debe ser mayor que cero")
+        self._max_items = max_items
         self._pending: deque[TtsRequest] = deque()
         self._closed = False
         self._condition = Condition()
@@ -26,12 +29,17 @@ class _TtsTaskQueue:
         with self._condition:
             return not self._pending
 
-    def submit(self, request: TtsRequest) -> None:
+    def submit(self, request: TtsRequest) -> int:
         with self._condition:
             if self._closed:
                 raise RuntimeError("La cola TTS ya está cerrada")
+            dropped = 0
+            if len(self._pending) >= self._max_items:
+                self._pending.popleft()
+                dropped += 1
             self._pending.append(request)
             self._condition.notify()
+            return dropped
 
     def get(self, timeout: float = 0.1) -> TtsRequest | None:
         with self._condition:
@@ -72,7 +80,7 @@ class TtsProcessingService:
         self._player = player or SoundDeviceAudioPlayer(config)
         self._result_callback = result_callback
         self._play_audio = play_audio
-        self._tasks = _TtsTaskQueue()
+        self._tasks = _TtsTaskQueue(config.queue_max_items)
         self._results: SimpleQueue[TtsResult] = SimpleQueue()
         self._worker: Thread | None = None
         self._backend_initialized = False
@@ -225,7 +233,7 @@ class TtsProcessingService:
         )
         self._register_task()
         try:
-            self._tasks.submit(request)
+            self._complete_dropped_tasks(self._tasks.submit(request))
         except Exception:
             self._complete_task()
             raise
@@ -243,7 +251,7 @@ class TtsProcessingService:
         )
         self._register_task()
         try:
-            self._tasks.submit(request)
+            self._complete_dropped_tasks(self._tasks.submit(request))
         except Exception:
             self._complete_task()
             raise
@@ -348,3 +356,16 @@ class TtsProcessingService:
 
             self._emit_result(result)
             self._complete_task()
+
+    def _complete_dropped_tasks(self, dropped: int) -> None:
+        for _ in range(dropped):
+            self._complete_task()
+        if dropped:
+            self._checks.append(
+                CheckResult(
+                    name="tts.queue",
+                    status=CheckStatus.WARNING,
+                    message="Cola TTS saturada; se descartaron solicitudes pendientes.",
+                    details={"dropped": dropped, "queue_max_items": self._config.queue_max_items},
+                )
+            )

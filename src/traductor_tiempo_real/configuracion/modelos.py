@@ -40,6 +40,7 @@ class AsrConfig:
     compression_ratio_threshold: float = 2.4
     logprob_threshold: float = -1.0
     warmup_on_start: bool = True
+    queue_max_items: int = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,10 +52,12 @@ class TranslationConfig:
     think: bool = False
     stream: bool = False
     temperature: float = 0.0
+    num_predict: int = 64
     timeout_seconds: float = 120.0
     keep_alive: str = "10m"
     structured_output: bool = True
     warmup_on_start: bool = True
+    queue_max_items: int = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +78,6 @@ class TtsConfig:
         ("es", "ef_dora"),
         ("fr", "ff_siwis"),
         ("it", "if_sara"),
-        ("de", None),
     )
 
 

@@ -135,7 +135,7 @@ class TtsServicioTestCase(unittest.TestCase):
         player = FakeAudioPlayer()
         service = TtsProcessingService(
             TtsConfig(warmup_on_start=False),
-            target_language="de",
+            target_language="pt",
             backend=backend,
             player=player,
             play_audio=False,
@@ -145,8 +145,8 @@ class TtsServicioTestCase(unittest.TestCase):
             build_translation_result(
                 "translated",
                 language="en",
-                target_language="de",
-                text="Hallo, das ist ein Test.",
+                target_language="pt",
+                text="Ola, isto e um teste.",
             )
         )
         service.close()
@@ -157,6 +157,27 @@ class TtsServicioTestCase(unittest.TestCase):
         self.assertEqual(results[0].status, "skipped")
         self.assertEqual(results[0].skip_reason, "unsupported_language")
         self.assertEqual(backend.synthesize_calls, [])
+
+    def test_acota_cola_interna_tts(self) -> None:
+        checks = []
+        service = TtsProcessingService(
+            TtsConfig(warmup_on_start=False, queue_max_items=1),
+            target_language="en",
+            backend=FakeTtsBackend(),
+            player=FakeAudioPlayer(),
+            play_audio=False,
+            checks=checks,
+        )
+
+        service.submit_translation_result(
+            build_translation_result("translated", language="es", target_language="en", text="First.")
+        )
+        service.submit_translation_result(
+            build_translation_result("translated", language="es", target_language="en", text="Second.")
+        )
+
+        self.assertEqual(service.unfinished_tasks, 1)
+        self.assertEqual(checks[-1].name, "tts.queue")
 
 
 if __name__ == "__main__":

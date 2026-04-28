@@ -142,7 +142,6 @@ El modelo `Gemma 4` mostró explícitamente contenido de razonamiento cuando se 
 - worker TTS desacoplado
 - métricas de `time-to-first-audio`
 - voces base para inglés, español, francés e italiano
-- alemán dejado explícitamente pendiente
 
 ### Cómo se resolvió
 
@@ -150,7 +149,7 @@ Se creó un backend TTS con `KPipeline` y un reproductor secuencial no bloqueant
 
 ### Por qué se hizo así
 
-Se priorizó una solución simple y estable. La salida se hace a `24 kHz`, frecuencia nativa de Kokoro, evitando remuestreo innecesario. El idioma alemán quedó sin cerrar porque Kokoro no ofrece una voz nativa clara para ese caso en la configuración adoptada.
+Se priorizó una solución simple y estable. La salida se hace a `24 kHz`, frecuencia nativa de Kokoro, evitando remuestreo innecesario.
 
 ## Mejora transversal previa al Sprint 5
 
@@ -283,15 +282,11 @@ En benchmark completo con audio pregrabado se observaron métricas end-to-end de
 
 `gemma4:26b` funciona correctamente, pero es el principal cuello de botella de latencia. La comparativa con `qwen3:8b` sigue pendiente y es una tarea crítica para valorar el encaje del MVP en tiempo real.
 
-### 2. Alemán pendiente en TTS
-
-No hay una voz Kokoro cerrada para alemán en la configuración adoptada. El idioma está soportado a nivel de sesión y traducción, pero no queda resuelto aún a nivel de síntesis de voz.
-
-### 3. Falta validación prolongada de estrés
+### 2. Falta validación prolongada de estrés
 
 Aunque el pipeline completo ya está instrumentado, sigue pendiente una prueba prolongada de estabilidad real para confirmar comportamiento de colas, memoria y degradación bajo sesiones largas.
 
-### 4. TTS secuencial conservador
+### 3. TTS secuencial conservador
 
 La política actual de TTS favorece estabilidad. Aún no se ha trabajado una estrategia de interrupción, sustitución o compactación de cola orientada a mínima latencia percibida.
 
@@ -321,7 +316,7 @@ En términos prácticos, la prioridad técnica pasa a ser:
 1. reducir latencia de traducción
 2. decidir estrategia definitiva de cola de TTS
 3. validar comportamiento prolongado del pipeline
-4. cerrar huecos funcionales pendientes, especialmente TTS en alemán y comparativa de modelos de traducción
+4. cerrar huecos funcionales pendientes, especialmente la comparativa de modelos de traducción
 
 ## Conclusión
 
