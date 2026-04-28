@@ -30,11 +30,14 @@ Componentes implementados:
 - traduccion local por API HTTP de Ollama
 - TTS local con Kokoro y reproduccion con `sounddevice`
 - pipeline `asyncio` con colas acotadas entre etapas principales
+- colas internas acotadas en servicios ASR, traduccion y TTS
 - eventos por `utterance_id`
 - metricas por etapa y end-to-end
+- resumen p50/p95/p99 en reportes JSON del pipeline
 - benchmarks por etapa y benchmark del pipeline completo
+- selector interactivo de idioma destino en comandos en vivo
 
-El siguiente frente natural es optimizacion de latencia, no integracion basica.
+El frente actual combina endurecimiento del MVP usable con optimizacion de latencia. La integracion basica ya esta resuelta.
 
 ## Entorno y Comandos
 
@@ -85,9 +88,10 @@ uv run python -m unittest discover -s tests -v
 - `think`: `false`
 - `stream`: `false`
 - `temperature`: `0.0`
+- `num_predict`: `64`
 - Salida esperada: JSON con clave `translation`
 
-No hay fallback automatico real entre modelos. Si se cambia el modelo de traduccion, medir latencia y calidad antes de considerarlo valido para el MVP.
+No hay fallback automatico real entre modelos. Si se cambia el modelo de traduccion, medir latencia y calidad antes de considerarlo valido para el MVP. En la ultima comparativa ejecutada, `qwen3:8b` no estaba disponible en Ollama y devolvio `HTTP 404`.
 
 ### TTS
 
@@ -106,9 +110,7 @@ Idiomas destino del MVP documentado:
 - `fr`: Frances
 - `it`: Italiano
 
-El idioma de entrada se detecta automaticamente. El idioma destino actual se pasa por CLI con `--target-language`; si no se indica, el valor por defecto es `en`.
-
-Objetivo pendiente para MVP usable: seleccionar el idioma destino de forma explicita al inicio de la sesion.
+El idioma de entrada se detecta automaticamente. En comandos en vivo con traduccion o TTS, si no se pasa `--target-language`, el CLI pregunta el idioma destino al inicio. En comandos no interactivos y benchmarks se conserva `en` como valor operativo por defecto.
 
 ## Objetivos Tecnicos
 
@@ -207,7 +209,7 @@ uv run traductor-ia <comando>
 
 Opciones globales relevantes:
 
-- `--target-language`: idioma destino, actualmente con valor por defecto `en`
+- `--target-language`: idioma destino; si se omite en comandos en vivo, se muestra selector interactivo
 - `--debug`: salida adicional
 
 Comandos existentes:
@@ -233,8 +235,16 @@ Opciones frecuentes por comando:
 - `--mute`
 - `--json`
 - `--sample`
+- `--model`
+- `--compare-models`
 - `--no-partials`
 - `--play`
+
+Comportamiento de idioma destino:
+
+- Comandos en vivo con traduccion/TTS: si falta `--target-language`, mostrar selector interactivo.
+- Comandos en vivo con `--json`: exigir `--target-language` para no mezclar prompts con JSON.
+- Benchmarks y comandos no interactivos: conservar `en` como valor operativo por defecto.
 
 ## Pruebas Minimas Esperadas
 
@@ -262,6 +272,12 @@ uv run traductor-ia --target-language en benchmark-traduccion --compare-models
 uv run traductor-ia --target-language es benchmark-tts
 uv run traductor-ia --target-language en benchmark-pipeline
 ```
+
+Mediciones recientes de Sprint 6:
+
+- `gemma4:26b` en `benchmark-traduccion`: `344-571 ms` en frases de 3, 8 y 15 palabras.
+- `benchmark-pipeline`: p50 hasta traduccion `1244 ms`, p95 `1823 ms`; p50 hasta primer audio `1732 ms`, p95 `2623 ms`.
+- `qwen3:8b`: pendiente de medir porque no estaba descargado en Ollama (`HTTP 404`).
 
 ## Seguimiento Del Trabajo
 
@@ -298,12 +314,12 @@ Un cambio se considera aceptable si:
 ## Deuda Tecnica Actual
 
 - Optimizar latencia del modelo de traduccion.
-- Validar `qwen3:8b` contra `gemma4:26b` con benchmark reproducible.
+- Descargar y validar `qwen3:8b` contra `gemma4:26b` con benchmark reproducible.
 - Afinar umbrales VAD y tamanos de chunk.
-- Revisar backpressure y limites de colas internas de servicios.
+- Afinar politicas de backpressure y descarte bajo carga real.
 - Definir estrategia de interrupcion, sustitucion o compactacion para TTS.
 - Ejecutar stress test prolongado de pipeline.
-- Convertir la seleccion de idioma destino en decision explicita de inicio.
+- Mejorar logging operativo y mensajes de error para audio, Ollama y modelos.
 
 ## Que Documentar Siempre
 

@@ -25,13 +25,16 @@ Implementado:
 - pipeline completo con `asyncio`, eventos y metricas end-to-end
 - tests unitarios e integracion mockeada
 - benchmarks reales por etapa y benchmark del pipeline con WAVs locales
+- selector interactivo de idioma destino en comandos en vivo
+- metricas p50/p95/p99 en el reporte JSON del pipeline
+- colas internas acotadas en servicios ASR, traduccion y TTS
 
 Pendiente principal:
 
 - optimizacion de latencia para acercar el flujo completo al objetivo de menos de `1 segundo`
-- comparativa real entre `gemma4:26b` y `qwen3:8b`
+- comparativa real completa entre `gemma4:26b` y `qwen3:8b`; en la ultima prueba `qwen3:8b` no estaba instalado en Ollama (`HTTP 404`)
 - validacion prolongada de estabilidad
-- selector obligatorio de idioma destino al inicio de la sesion
+- logging operativo mas claro para errores de audio, Ollama y modelos
 
 ## Requisitos
 
@@ -76,7 +79,7 @@ ollama pull qwen3:8b
 | Traduccion | `Ollama` HTTP API | `gemma4:26b` |
 | TTS | `kokoro` | `hexgrad/Kokoro-82M` |
 
-`qwen3:8b` esta registrado como candidato para comparativa, pero no es fallback automatico. La configuracion actual usa `gemma4:26b` como modelo preferido.
+`qwen3:8b` esta registrado como candidato para comparativa, pero no es fallback automatico. La configuracion actual usa `gemma4:26b` como modelo preferido. El cliente de Ollama usa `think=false`, `stream=false`, `temperature=0.0`, salida JSON estructurada y `num_predict=64`.
 
 ## Idiomas Del MVP
 
@@ -87,7 +90,7 @@ Idiomas destino documentados para el MVP:
 - `fr`: Frances
 - `it`: Italiano
 
-El idioma de entrada se detecta automaticamente desde el ASR. Actualmente el idioma destino se pasa con `--target-language`; si no se indica, el CLI usa `en`.
+El idioma de entrada se detecta automaticamente desde el ASR. En comandos en vivo, si no se pasa `--target-language`, el CLI pregunta el idioma destino al inicio. En comandos no interactivos y benchmarks se conserva `en` como valor operativo por defecto para no romper automatizacion.
 
 ## Uso Rapido
 
@@ -113,6 +116,12 @@ Traducir en vivo con TTS activo:
 
 ```bash
 uv run traductor-ia --target-language en traducir-en-vivo --seconds 15
+```
+
+Tambien puedes omitir `--target-language` en comandos en vivo para usar el selector interactivo:
+
+```bash
+uv run traductor-ia traducir-en-vivo --seconds 15
 ```
 
 Traducir en vivo sin reproduccion de audio:
@@ -196,6 +205,8 @@ La mayoria de comandos de diagnostico y benchmark aceptan `--json`:
 uv run traductor-ia --target-language en benchmark-pipeline --json
 ```
 
+En comandos interactivos con `--json`, pasa siempre `--target-language` para evitar prompts que mezclen texto con JSON.
+
 ## Tests
 
 Ejecutar la suite completa:
@@ -238,6 +249,12 @@ Muestras incluidas:
 
 El benchmark del pipeline pregrabado espera WAVs PCM mono `16 kHz`.
 
+Mediciones recientes de Sprint 6:
+
+- `benchmark-traduccion` con `gemma4:26b`: `344-571 ms` en frases de 3, 8 y 15 palabras con salida JSON limpia.
+- `benchmark-traduccion --compare-models`: `gemma4:26b` medido; `qwen3:8b` no disponible en Ollama (`HTTP 404`).
+- `benchmark-pipeline`: p50 hasta traduccion `1244 ms`, p95 `1823 ms`; p50 hasta primer audio `1732 ms`, p95 `2623 ms`.
+
 ## Arquitectura
 
 ```text
@@ -254,16 +271,16 @@ src/traductor_tiempo_real/
 
 El pipeline en vivo inicializa y calienta backends antes de escuchar. Despues produce segmentos desde microfono, despacha ASR, traduce resultados finales y envia traducciones a TTS. El reporte final incluye resultados, eventos, estadisticas de colas, CPU/RSS y metricas end-to-end.
 
-Los reportes JSON del pipeline incluyen `latency_summary` con `p50_ms`, `p95_ms` y `p99_ms` para latencia hasta traduccion y hasta primer audio.
+Los reportes JSON del pipeline incluyen `latency_summary` con `p50_ms`, `p95_ms` y `p99_ms` para latencia hasta traduccion y hasta primer audio. Los servicios pesados mantienen colas internas acotadas para evitar acumulacion indefinida bajo carga.
 
 ## Limitaciones Conocidas
 
 - La latencia completa puede superar `1 segundo`, especialmente por traduccion con `gemma4:26b`.
-- `qwen3:8b` esta pendiente de comparativa real contra `gemma4:26b`.
+- `qwen3:8b` esta pendiente de comparativa real contra `gemma4:26b`; en la ultima ejecucion no estaba descargado en Ollama.
 - Los resultados parciales de ASR existen en diagnostico, pero el pipeline completo traduce solo finales.
 - El TTS actual prioriza estabilidad con reproduccion secuencial; aun no hay estrategia agresiva de interrupcion o sustitucion de audio.
 - Falta una prueba prolongada de estres para sesiones largas.
-- Algunos servicios internos usan workers propios; la orquestacion del pipeline usa colas acotadas, pero la optimizacion fina de backpressure sigue pendiente.
+- La optimizacion fina de backpressure y politicas de descarte sigue pendiente.
 
 ## Sprints Implementados
 
@@ -273,5 +290,7 @@ Los reportes JSON del pipeline incluyen `latency_summary` con `p50_ms`, `p95_ms`
 - Sprint 3: traduccion con Ollama, prompt minimo, JSON limpio y benchmark de frases.
 - Sprint 4: TTS con Kokoro, reproduccion no bloqueante y benchmark de voz.
 - Sprint 5: pipeline completo con `asyncio`, colas acotadas, eventos y metricas end-to-end.
+- Sprint 6: optimizacion inicial de latencia, prompt mas compacto, warmup real de Ollama, percentiles p50/p95/p99 y colas internas acotadas.
+- Sprint 7: selector interactivo de idioma destino para comandos en vivo y tests de CLI.
 
 El tablero vivo del proyecto esta en `Fases.md` y el informe tecnico hasta Sprint 5 esta en `Informe/InformeTecnico.md`.

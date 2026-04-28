@@ -19,7 +19,7 @@ from traductor_tiempo_real.asr.diagnostico import (
 from traductor_tiempo_real.audio.diagnostico import render_capture_diagnostic, run_capture_diagnostic
 from traductor_tiempo_real.benchmark_base import render_report, run_base_benchmark
 from traductor_tiempo_real.configuracion.carga import build_default_app_config
-from traductor_tiempo_real.configuracion.idiomas import target_language_choices
+from traductor_tiempo_real.configuracion.idiomas import supported_target_languages, target_language_choices
 from traductor_tiempo_real.pipeline.orquestador import render_pipeline_summary, run_live_pipeline, run_pre_recorded_pipeline
 from traductor_tiempo_real.traduccion.diagnostico import (
     format_translation_result_line,
@@ -47,8 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--target-language",
         choices=target_language_choices(),
-        default="en",
-        help="Idioma destino del MVP.",
+        default=None,
+        help="Idioma destino del MVP. Si se omite en comandos interactivos, se pregunta al inicio.",
     )
     parser.add_argument("--debug", action="store_true", help="Activa salida adicional.")
 
@@ -349,16 +349,58 @@ def wait_for_user(prompt: str) -> None:
         return
 
 
+INTERACTIVE_TARGET_LANGUAGE_COMMANDS = {
+    "traducir-en-vivo",
+    "validar-traduccion-real",
+    "tts-diagnostico",
+    "pipeline-diagnostico",
+}
+
+
+def prompt_for_target_language(input_callback=input, output_callback=print) -> str:
+    options = supported_target_languages()
+    output_callback("Selecciona idioma destino:")
+    for index, option in enumerate(options, start=1):
+        output_callback(f"{index}. {option.label} ({option.code.value})")
+
+    while True:
+        try:
+            raw_value = input_callback("Idioma destino: ").strip().lower()
+        except EOFError as exc:
+            raise ValueError("No se recibió idioma destino por entrada interactiva") from exc
+
+        if raw_value in target_language_choices():
+            return raw_value
+        if raw_value.isdigit():
+            index = int(raw_value)
+            if 1 <= index <= len(options):
+                return options[index - 1].code.value
+        output_callback(f"Opción no válida. Usa un número entre 1 y {len(options)} o uno de: {', '.join(target_language_choices())}.")
+
+
+def resolve_target_language(args, parser: argparse.ArgumentParser) -> str:
+    if args.target_language:
+        return args.target_language
+
+    if args.command in INTERACTIVE_TARGET_LANGUAGE_COMMANDS:
+        if getattr(args, "json", False):
+            parser.error("--target-language es obligatorio con --json para evitar prompts interactivos")
+        return prompt_for_target_language()
+
+    return "en"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    target_language = resolve_target_language(args, parser)
 
     if args.command in {None, "info"}:
-        print(render_config(args.target_language, args.debug))
+        print(render_config(target_language, args.debug))
         return 0
 
     if args.command == "benchmark-base":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         report = run_base_benchmark(config=config, sample_path=args.sample)
         if args.json:
             print(report.to_json())
@@ -367,7 +409,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "captura-diagnostico":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         report = run_capture_diagnostic(
             config=config,
             duration_seconds=args.seconds,
@@ -380,7 +422,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "transcribe-en-vivo":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         on_step, on_ready = build_startup_reporters(include_listening=True)
         report = run_live_transcription(
             config=config,
@@ -398,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "validar-asr-real":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         on_step, on_ready = build_startup_reporters(include_listening=False)
         report = run_guided_validation(
             config,
@@ -417,7 +459,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "benchmark-asr":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         sample_paths = args.sample if args.sample else sorted((config.project_root / "samples" / "asr").glob("*.wav"))
         report = run_asr_benchmark(config, list(sample_paths))
         if args.json:
@@ -427,7 +469,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "traducir-en-vivo":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         on_step, on_ready = build_startup_reporters(include_listening=True)
         report = run_live_speech(
             config,
@@ -450,7 +492,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "validar-traduccion-real":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         on_step, on_ready = build_startup_reporters(include_listening=False)
         report = run_guided_speech_validation(
             config,
@@ -475,7 +517,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "benchmark-traduccion":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         report = run_translation_benchmark(config, model=args.model, compare_models=args.compare_models)
         if args.json:
             print(report.to_json())
@@ -484,7 +526,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "tts-diagnostico":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         on_step, on_ready = build_startup_reporters(include_listening=False)
         report = run_tts_diagnostic(
             config,
@@ -500,7 +542,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "benchmark-tts":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         report = run_tts_benchmark(config, play_audio=args.play)
         if args.json:
             print(report.to_json())
@@ -509,7 +551,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "pipeline-diagnostico":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         on_step, on_ready = build_startup_reporters(include_listening=True)
         report = run_live_pipeline(
             config,
@@ -532,7 +574,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.is_successful() else 1
 
     if args.command == "benchmark-pipeline":
-        config = build_default_app_config(target_language=args.target_language, debug=args.debug)
+        config = build_default_app_config(target_language=target_language, debug=args.debug)
         sample_paths = args.sample if args.sample else sorted((config.project_root / "samples" / "asr").glob("*.wav"))
         report = run_pre_recorded_pipeline(config, sample_paths=list(sample_paths), play_audio=False)
         if args.json:

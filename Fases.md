@@ -27,7 +27,7 @@ Objetivos de latencia:
 
 ## Requisitos funcionales del MVP
 
-- [ ] La aplicación pregunta al inicio el idioma destino.
+- [x] La aplicación pregunta al inicio el idioma destino en comandos en vivo si no se pasa `--target-language`.
 - [ ] El idioma de entrada se detecta automáticamente.
 - [ ] El flujo principal del MVP empieza en el micrófono y termina en audio traducido reproducido por TTS.
 - [ ] El MVP solo soporta estos idiomas de salida:
@@ -282,16 +282,16 @@ Tener una versión utilizable, repetible y fácil de depurar.
 
 ### Entregables
 
-- [ ] CLI inicial implementada
-- [ ] Selector obligatorio de idioma destino implementado
-- [ ] Soporte para estos idiomas en el selector:
-  - [ ] Español
-  - [ ] Inglés
-  - [ ] Francés
-  - [ ] Italiano
-- [ ] Idioma de entrada automático mantenido
+- [x] CLI inicial implementada
+- [x] Selector interactivo de idioma destino implementado para comandos en vivo
+- [x] Soporte para estos idiomas en el selector:
+  - [x] Español
+  - [x] Inglés
+  - [x] Francés
+  - [x] Italiano
+- [x] Idioma de entrada automático mantenido
 - [ ] Logging claro implementado
-- [ ] Modo benchmark implementado
+- [x] Modo benchmark implementado
 - [x] Documentación de instalación y uso escrita
 
 ### Pruebas
@@ -300,7 +300,7 @@ Tener una versión utilizable, repetible y fácil de depurar.
 - [ ] Prueba de error de dispositivo de audio
 - [ ] Prueba de error de modelo
 - [ ] Validación manual del flujo completo
-- [ ] Validación del selector inicial de idioma destino
+- [x] Validación del selector inicial de idioma destino
 
 ### Criterio de cierre
 
